@@ -1,5 +1,8 @@
 # Win2D.UnoCompat
 
+[![NuGet](https://img.shields.io/nuget/v/LeXtudio.Win2D.UnoCompat.svg)](https://www.nuget.org/packages/LeXtudio.Win2D.UnoCompat/)
+[![NuGet Downloads](https://img.shields.io/nuget/dt/LeXtudio.Win2D.UnoCompat.svg)](https://www.nuget.org/packages/LeXtudio.Win2D.UnoCompat/)
+
 A small compatibility shim project that provides a subset of the Win2D API surface for use with Uno Platform apps.
 
 This library translates `Microsoft.Graphics.Canvas` drawing and text APIs into `SkiaSharp` operations so Uno projects can compile and run without the native Win2D package on non-Windows targets.
