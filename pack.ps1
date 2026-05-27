@@ -179,6 +179,8 @@ function Invoke-PackProject([string]$MSBuild, [string]$ProjectPath) {
         "/p:Configuration=$Configuration",
         "/p:BaseOutputPath=$projectOutput\",
         "/p:PackageOutputPath=$PackageStaging",
+        "/p:IncludeSymbols=true",
+        "/p:SymbolPackageFormat=snupkg",
         "/v:minimal",
         "/nologo"
     )
