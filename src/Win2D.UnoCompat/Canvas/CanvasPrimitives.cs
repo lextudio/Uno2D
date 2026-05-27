@@ -5,47 +5,27 @@ namespace Microsoft.Graphics.Canvas
         Png
     }
 
-    public enum CanvasDashStyle
-    {
-        Solid,
-        Dash
-    }
-
-    public enum CanvasCapStyle
-    {
-        Flat,
-        Round,
-        Square
-    }
-
-    public enum CanvasLineJoin
-    {
-        Miter,
-        Bevel,
-        Round
-    }
-
     public sealed class CanvasStrokeStyle
     {
-        public CanvasDashStyle DashStyle { get; set; }
-        public CanvasCapStyle StartCap { get; set; }
-        public CanvasCapStyle EndCap { get; set; }
-        public CanvasLineJoin LineJoin { get; set; }
+        public Geometry.CanvasDashStyle DashStyle { get; set; }
+        public Geometry.CanvasCapStyle StartCap { get; set; }
+        public Geometry.CanvasCapStyle EndCap { get; set; }
+        public Geometry.CanvasLineJoin LineJoin { get; set; }
     }
 
     internal static class CanvasPrimitivesExtensions
     {
-        public static SkiaSharp.SKStrokeCap GetSkStrokeCap(this CanvasStrokeStyle style, CanvasCapStyle cap) => cap switch
+        public static SkiaSharp.SKStrokeCap GetSkStrokeCap(this CanvasStrokeStyle style, Geometry.CanvasCapStyle cap) => cap switch
         {
-            CanvasCapStyle.Round => SkiaSharp.SKStrokeCap.Round,
-            CanvasCapStyle.Square => SkiaSharp.SKStrokeCap.Square,
+            Geometry.CanvasCapStyle.Round => SkiaSharp.SKStrokeCap.Round,
+            Geometry.CanvasCapStyle.Square => SkiaSharp.SKStrokeCap.Square,
             _ => SkiaSharp.SKStrokeCap.Butt,
         };
 
-        public static SkiaSharp.SKStrokeJoin GetSkStrokeJoin(this CanvasStrokeStyle style, CanvasLineJoin join) => join switch
+        public static SkiaSharp.SKStrokeJoin GetSkStrokeJoin(this CanvasStrokeStyle style, Geometry.CanvasLineJoin join) => join switch
         {
-            CanvasLineJoin.Bevel => SkiaSharp.SKStrokeJoin.Bevel,
-            CanvasLineJoin.Round => SkiaSharp.SKStrokeJoin.Round,
+            Geometry.CanvasLineJoin.Bevel => SkiaSharp.SKStrokeJoin.Bevel,
+            Geometry.CanvasLineJoin.Round => SkiaSharp.SKStrokeJoin.Round,
             _ => SkiaSharp.SKStrokeJoin.Miter,
         };
     }

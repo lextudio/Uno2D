@@ -67,32 +67,80 @@ namespace Microsoft.Graphics.Canvas
         {
             using SKFont font = CreateTextFont(format);
             using var paint = CreateTextPaint(color);
-            float x = (float)bounds.X;
-            if (format.HorizontalAlignment == CanvasHorizontalAlignment.Center)
-                x += (float)bounds.Width / 2f;
-            else if (format.HorizontalAlignment == CanvasHorizontalAlignment.Right)
-                x += (float)bounds.Width;
-
-            float y = (float)bounds.Y;
-            var metrics = font.Metrics;
-            float textHeight = metrics.Descent - metrics.Ascent;
-
-            if (format.VerticalAlignment == CanvasVerticalAlignment.Center)
-                y += (float)bounds.Height / 2f + (metrics.Descent - textHeight / 2f);
-            else if (format.VerticalAlignment == CanvasVerticalAlignment.Bottom)
-                y += (float)bounds.Height - metrics.Descent;
-            else
-                y -= metrics.Ascent;
-
-            _canvas.DrawText(text, x, y, font, paint);
+            SKRect textBounds = default;
+            font.MeasureText(text, out textBounds);
+            (float drawX, float drawY) = ComputeTopLeftAlignedTextOrigin(
+                textBounds,
+                (float)bounds.X,
+                (float)bounds.Y,
+                (float)bounds.Width,
+                (float)bounds.Height,
+                format.HorizontalAlignment,
+                format.VerticalAlignment);
+            _canvas.DrawText(text, drawX, drawY - textBounds.Top, font, paint);
         }
 
         public void DrawText(string text, float x, float y, Color color, CanvasTextFormat format)
         {
             using SKFont font = CreateTextFont(format);
             using var paint = CreateTextPaint(color);
-            y -= font.Metrics.Ascent;
-            _canvas.DrawText(text, x, y, font, paint);
+            SKRect textBounds = default;
+            font.MeasureText(text, out textBounds);
+            (float drawX, float drawY) = ComputePointAlignedTextOrigin(
+                textBounds,
+                x,
+                y,
+                format.HorizontalAlignment,
+                format.VerticalAlignment);
+            _canvas.DrawText(text, drawX, drawY - textBounds.Top, font, paint);
+        }
+
+        private static (float x, float y) ComputeTopLeftAlignedTextOrigin(
+            SKRect textBounds,
+            float rectX,
+            float rectY,
+            float rectWidth,
+            float rectHeight,
+            CanvasHorizontalAlignment hAlign,
+            CanvasVerticalAlignment vAlign)
+        {
+            float x = rectX;
+            float y = rectY;
+
+            if (hAlign == CanvasHorizontalAlignment.Center)
+                x += (rectWidth - textBounds.Width) / 2f;
+            else if (hAlign == CanvasHorizontalAlignment.Right)
+                x += rectWidth - textBounds.Width;
+
+            if (vAlign == CanvasVerticalAlignment.Center)
+                y += (rectHeight - textBounds.Height) / 2f;
+            else if (vAlign == CanvasVerticalAlignment.Bottom)
+                y += rectHeight - textBounds.Height;
+
+            return (x, y);
+        }
+
+        private static (float x, float y) ComputePointAlignedTextOrigin(
+            SKRect textBounds,
+            float anchorX,
+            float anchorY,
+            CanvasHorizontalAlignment hAlign,
+            CanvasVerticalAlignment vAlign)
+        {
+            float x = anchorX;
+            float y = anchorY;
+
+            if (hAlign == CanvasHorizontalAlignment.Center)
+                x -= textBounds.Width / 2f;
+            else if (hAlign == CanvasHorizontalAlignment.Right)
+                x -= textBounds.Width;
+
+            if (vAlign == CanvasVerticalAlignment.Center)
+                y -= textBounds.Height / 2f;
+            else if (vAlign == CanvasVerticalAlignment.Bottom)
+                y -= textBounds.Height;
+
+            return (x, y);
         }
 
         private static SKFont CreateTextFont(CanvasTextFormat format)

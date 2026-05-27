@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using SkiaSharp;
 
 namespace Microsoft.Graphics.Canvas.Text
@@ -25,6 +26,8 @@ namespace Microsoft.Graphics.Canvas.Text
 
     public sealed class CanvasTextFormat : IDisposable
     {
+        private static readonly ConcurrentDictionary<string, SKTypeface> TypefaceCache = new(StringComparer.OrdinalIgnoreCase);
+
         public string? FontFamily { get; set; }
         public float FontSize { get; set; }
         public CanvasHorizontalAlignment HorizontalAlignment { get; set; }
@@ -33,25 +36,61 @@ namespace Microsoft.Graphics.Canvas.Text
 
         public SKTypeface ResolveTypeface()
         {
-            if (!string.IsNullOrWhiteSpace(FontFamily))
+            if (string.IsNullOrWhiteSpace(FontFamily))
+                return SKTypeface.Default;
+
+            if (TypefaceCache.TryGetValue(FontFamily, out SKTypeface? cached))
+                return cached;
+
+            SKTypeface resolved = SKTypeface.Default;
+
+            try
             {
-                try
-                {
-                    if (FontFamily.Contains("ms-appx:///", StringComparison.OrdinalIgnoreCase) || FontFamily.Contains("file://", StringComparison.OrdinalIgnoreCase))
+                string family = FontFamily;
+                string? explicitFamilyName = null;
+
+                    // WinUI/Uno commonly uses "uri#FamilyName".
+                    int hashIndex = family.LastIndexOf('#');
+                    if (hashIndex >= 0)
                     {
-                        string path = FontFamily.Replace("ms-appx:///", string.Empty).Replace("file://", string.Empty).TrimStart('/', '\\');
-                        if (System.IO.File.Exists(path))
-                            return SKTypeface.FromFile(path);
+                        explicitFamilyName = family[(hashIndex + 1)..];
+                        family = family[..hashIndex];
                     }
 
-                    return SKTypeface.FromFamilyName(FontFamily) ?? SKTypeface.Default;
-                }
-                catch
+                if (family.Contains("ms-appx:///", StringComparison.OrdinalIgnoreCase) || family.Contains("file://", StringComparison.OrdinalIgnoreCase))
                 {
+                    string path = family
+                        .Replace("ms-appx:///", string.Empty, StringComparison.OrdinalIgnoreCase)
+                        .Replace("file://", string.Empty, StringComparison.OrdinalIgnoreCase)
+                        .TrimStart('/', '\\');
+
+                    // Resolve app package-relative asset path for ms-appx URIs.
+                    if (!System.IO.Path.IsPathRooted(path))
+                        path = System.IO.Path.Combine(AppContext.BaseDirectory, path);
+
+                    if (System.IO.File.Exists(path))
+                    {
+                        SKTypeface? fromFile = SKTypeface.FromFile(path);
+                        if (fromFile is not null)
+                            resolved = fromFile;
+                    }
                 }
+
+                if (ReferenceEquals(resolved, SKTypeface.Default) && !string.IsNullOrWhiteSpace(explicitFamilyName))
+                {
+                    SKTypeface? named = SKTypeface.FromFamilyName(explicitFamilyName);
+                    if (named is not null)
+                        resolved = named;
+                }
+
+                if (ReferenceEquals(resolved, SKTypeface.Default))
+                    resolved = SKTypeface.FromFamilyName(family) ?? SKTypeface.Default;
+            }
+            catch
+            {
             }
 
-            return SKTypeface.Default;
+            return TypefaceCache.GetOrAdd(FontFamily, resolved);
         }
 
         public void Dispose()

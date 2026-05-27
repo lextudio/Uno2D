@@ -42,6 +42,26 @@ namespace Microsoft.Graphics.Canvas.Geometry
         ForceRoundJoin
     }
 
+    public enum CanvasDashStyle
+    {
+        Solid,
+        Dash
+    }
+
+    public enum CanvasCapStyle
+    {
+        Flat,
+        Round,
+        Square
+    }
+
+    public enum CanvasLineJoin
+    {
+        Miter,
+        Bevel,
+        Round
+    }
+
     public interface ICanvasPathReceiver
     {
         void BeginFigure(Vector2 startPoint, CanvasFigureFill figureFill);
