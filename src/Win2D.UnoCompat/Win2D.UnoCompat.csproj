@@ -6,11 +6,32 @@
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);1591</NoWarn>
+    <Authors>LeXtudio</Authors>
+    <Company>LeXtudio</Company>
+    <Version>$(GitVersion_SemVer)</Version>
+    <Description>Uno-compatible Win2D shim library for SkiaSharp-backed Uno Platform applications.</Description>
+    <PackageId>LeXtudio.Win2D.UnoCompat</PackageId>
+    <PackageTags>uno;win2d;skiasharp;compatibility</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/lextudio/uno-tools</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/lextudio/uno-tools</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageIcon>company_logo_512.png</PackageIcon>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <IsPackable>true</IsPackable>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\images\company_logo_512.png" Pack="true" PackagePath="/" />
+    <None Include="..\..\README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="SkiaSharp" Version="3.119.1" />
     <PackageReference Include="SkiaSharp.Views.Uno.WinUI" Version="3.119.1" />
+    <PackageReference Include="GitVersion.MsBuild" Version="5.12.0" PrivateAssets="All" />
   </ItemGroup>
 
   <ItemGroup>
