@@ -187,6 +187,17 @@ namespace Microsoft.Graphics.Canvas.Text
             get { EnsureMetrics(); return new Rect(0, 0, TotalWidth, LineHeight); }
         }
 
+        /// <summary>
+        /// Layout bounds including trailing whitespace. This shim's advance accumulation already
+        /// counts whitespace glyph advances, so it equals <see cref="LayoutBounds"/>. (Real Win2D's
+        /// plain LayoutBounds excludes trailing whitespace, which would collapse spaces between
+        /// runs — callers measuring run advances must use this property for parity.)
+        /// </summary>
+        public Rect LayoutBoundsIncludingTrailingWhitespace
+        {
+            get { EnsureMetrics(); return new Rect(0, 0, TotalWidth, LineHeight); }
+        }
+
         /// <summary>The bounds of the inked pixels. Approximated by the layout bounds for this shim.</summary>
         public Rect DrawBounds => LayoutBounds;
 

@@ -86,13 +86,28 @@ namespace Microsoft.Graphics.Canvas
             using var paint = CreateTextPaint(color);
             SKRect textBounds = default;
             font.MeasureText(text, out textBounds);
-            (float drawX, float drawY) = ComputePointAlignedTextOrigin(
+            // Horizontal placement from the shared helper; vertical placement from FONT metrics, not
+            // the per-string ink top. Aligning vertically by textBounds.Top would put each string's
+            // own ink top at the requested y, so runs with different glyph heights (e.g. all-lowercase
+            // "namespace" vs a run containing capitals) would sit at different vertical positions on
+            // the same line. Using the font ascent/descent gives every run a common baseline —
+            // matching real Win2D/DirectWrite.
+            (float drawX, _) = ComputePointAlignedTextOrigin(
                 textBounds,
                 x,
                 y,
                 format.HorizontalAlignment,
                 format.VerticalAlignment);
-            _canvas.DrawText(text, drawX, drawY - textBounds.Top, font, paint);
+            SKFontMetrics metrics = font.Metrics;
+            float ascent = -metrics.Ascent;   // distance above baseline (positive)
+            float descent = metrics.Descent;  // distance below baseline (positive)
+            float baseline = format.VerticalAlignment switch
+            {
+                CanvasVerticalAlignment.Center => y + (ascent - descent) / 2f,
+                CanvasVerticalAlignment.Bottom => y - descent,
+                _ => y + ascent, // Top: top of the font box at y
+            };
+            _canvas.DrawText(text, drawX, baseline, font, paint);
         }
 
         private static (float x, float y) ComputeTopLeftAlignedTextOrigin(
