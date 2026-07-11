@@ -1,33 +1,14 @@
+using SkiaSharp;
 using System;
 using System.Collections.Concurrent;
-using SkiaSharp;
-using Windows.Foundation;
 
 namespace Microsoft.Graphics.Canvas.Text
 {
-    public enum CanvasHorizontalAlignment
-    {
-        Left,
-        Center,
-        Right
-    }
-
-    public enum CanvasVerticalAlignment
-    {
-        Top,
-        Center,
-        Bottom
-    }
-
-    public enum CanvasWordWrapping
-    {
-        NoWrap,
-        Wrap
-    }
-
     public sealed class CanvasTextFormat : IDisposable
     {
         private static readonly ConcurrentDictionary<string, SKTypeface> TypefaceCache = new(StringComparer.OrdinalIgnoreCase);
+
+        // ── Core properties (existing) ─────────────────────────────────
 
         public string? FontFamily { get; set; }
         public float FontSize { get; set; }
@@ -35,37 +16,112 @@ namespace Microsoft.Graphics.Canvas.Text
         public CanvasVerticalAlignment VerticalAlignment { get; set; }
         public CanvasWordWrapping WordWrapping { get; set; }
 
+        // ── Font properties (new) ──────────────────────────────────────
+
+        public CanvasFontWeight FontWeight { get; set; } = CanvasFontWeight.Normal;
+        public CanvasFontStretch FontStretch { get; set; } = CanvasFontStretch.Normal;
+        public CanvasFontStyle FontStyle { get; set; } = CanvasFontStyle.Normal;
+        public string? Locale { get; set; }
+
+        // ── Line properties (new) ──────────────────────────────────────
+
+        public float LineSpacing { get; set; }
+        public CanvasLineSpacingMethod LineSpacingMethod { get; set; }
+        public bool OpticalAlignment { get; set; }
+
+        // ── Trimming (new) ─────────────────────────────────────────────
+
+        public CanvasTrimmingGranularity TrimmingGranularity { get; set; }
+        public string? TrimmingDelimiter { get; set; }
+        public int TrimmingDelimiterCount { get; set; } = 1;
+
+        // ── Direction / spacing (new) ──────────────────────────────────
+
+        public CanvasTextDirection Direction { get; set; } = CanvasTextDirection.LeftToRight;
+        public float WordSpacing { get; set; }
+        public float LetterSpacing { get; set; }
+
+        // ── Paragraph (new) ────────────────────────────────────────────
+
+        public CanvasParagraphAlignment ParagraphAlignment { get; set; } = CanvasParagraphAlignment.Near;
+
+        // ── Additional formatting ──────────────────────────────────────
+
+        public float IncrementalTabStop { get; set; } = 48f;
+
+        public bool LastLineWrapping { get; set; } = true;
+
+        public float LineSpacingBaseline { get; set; }
+
+        public CanvasLineSpacingMode LineSpacingMode { get; set; } = CanvasLineSpacingMode.Default;
+
+        public CanvasDrawTextOptions Options { get; set; }
+
+        public CanvasTrimmingSign TrimmingSign { get; set; } = CanvasTrimmingSign.Ellipsis;
+
+        public string? CustomTrimmingSign { get; set; }
+
+        public CanvasVerticalGlyphOrientation VerticalGlyphOrientation { get; set; } = CanvasVerticalGlyphOrientation.Default;
+
+        public static string[] GetSystemFontFamilies()
+        {
+            return SkiaSharp.SKFontManager.Default.GetFontFamilies();
+        }
+
+        // ── Font resolution ────────────────────────────────────────────
+
         public SKTypeface ResolveTypeface()
         {
-            if (string.IsNullOrWhiteSpace(FontFamily))
-                return SKTypeface.Default;
+            string family = FontFamily ?? string.Empty;
+            string cacheKey = $"{family}|{FontWeight.Weight}|{(int)FontStretch}|{(int)FontStyle}|{Locale}";
 
-            if (TypefaceCache.TryGetValue(FontFamily, out SKTypeface? cached))
+            if (TypefaceCache.TryGetValue(cacheKey, out SKTypeface? cached))
                 return cached;
 
             SKTypeface resolved = SKTypeface.Default;
 
             try
             {
-                string family = FontFamily;
+                string familyName = family;
                 string? explicitFamilyName = null;
 
-                    // WinUI/Uno commonly uses "uri#FamilyName".
-                    int hashIndex = family.LastIndexOf('#');
-                    if (hashIndex >= 0)
-                    {
-                        explicitFamilyName = family[(hashIndex + 1)..];
-                        family = family[..hashIndex];
-                    }
-
-                if (family.Contains("ms-appx:///", StringComparison.OrdinalIgnoreCase) || family.Contains("file://", StringComparison.OrdinalIgnoreCase))
+                int hashIndex = family.LastIndexOf('#');
+                if (hashIndex >= 0)
                 {
-                    string path = family
+                    explicitFamilyName = family[(hashIndex + 1)..];
+                    familyName = family[..hashIndex];
+                }
+
+                var fontStyle = new SKFontStyle(
+                    ToSkFontStyleWeight(FontWeight.Weight),
+                    FontStretch switch
+                    {
+                        CanvasFontStretch.UltraCondensed => SKFontStyleWidth.UltraCondensed,
+                        CanvasFontStretch.ExtraCondensed => SKFontStyleWidth.ExtraCondensed,
+                        CanvasFontStretch.Condensed => SKFontStyleWidth.Condensed,
+                        CanvasFontStretch.SemiCondensed => SKFontStyleWidth.SemiCondensed,
+                        CanvasFontStretch.Normal => SKFontStyleWidth.Normal,
+                        CanvasFontStretch.SemiExpanded => SKFontStyleWidth.SemiExpanded,
+                        CanvasFontStretch.Expanded => SKFontStyleWidth.Expanded,
+                        CanvasFontStretch.ExtraExpanded => SKFontStyleWidth.ExtraExpanded,
+                        CanvasFontStretch.UltraExpanded => SKFontStyleWidth.UltraExpanded,
+                        _ => SKFontStyleWidth.Normal,
+                    },
+                    FontStyle switch
+                    {
+                        CanvasFontStyle.Italic => SKFontStyleSlant.Italic,
+                        CanvasFontStyle.Oblique => SKFontStyleSlant.Oblique,
+                        _ => SKFontStyleSlant.Upright,
+                    });
+
+                if (familyName.Contains("ms-appx:///", StringComparison.OrdinalIgnoreCase)
+                    || familyName.Contains("file://", StringComparison.OrdinalIgnoreCase))
+                {
+                    string path = familyName
                         .Replace("ms-appx:///", string.Empty, StringComparison.OrdinalIgnoreCase)
                         .Replace("file://", string.Empty, StringComparison.OrdinalIgnoreCase)
                         .TrimStart('/', '\\');
 
-                    // Resolve app package-relative asset path for ms-appx URIs.
                     if (!System.IO.Path.IsPathRooted(path))
                         path = System.IO.Path.Combine(AppContext.BaseDirectory, path);
 
@@ -79,230 +135,98 @@ namespace Microsoft.Graphics.Canvas.Text
 
                 if (ReferenceEquals(resolved, SKTypeface.Default) && !string.IsNullOrWhiteSpace(explicitFamilyName))
                 {
-                    SKTypeface? named = SKTypeface.FromFamilyName(explicitFamilyName);
+                    SKTypeface? named = SKTypeface.FromFamilyName(explicitFamilyName, fontStyle);
                     if (named is not null)
                         resolved = named;
                 }
 
                 if (ReferenceEquals(resolved, SKTypeface.Default))
-                    resolved = SKTypeface.FromFamilyName(family) ?? SKTypeface.Default;
+                    resolved = SKTypeface.FromFamilyName(familyName, fontStyle) ?? SKTypeface.Default;
             }
             catch
             {
             }
 
-            return TypefaceCache.GetOrAdd(FontFamily, resolved);
+            return TypefaceCache.GetOrAdd(cacheKey, resolved);
         }
 
-        public void Dispose()
+        public string ApplyTrimming(string text, float maxWidth)
         {
-        }
-    }
-
-    public sealed class CanvasTextLayout : IDisposable
-    {
-        private readonly string _text;
-        private readonly CanvasTextFormat _textFormat;
-        private readonly float _maxWidth;
-        private readonly float _maxHeight;
-
-        // Cumulative advance (in DIPs) before each UTF-16 code unit. Length == _text.Length + 1;
-        // _cumulativeX[i] is the X of the leading edge of character i, _cumulativeX[Length] is the
-        // total advance. Built lazily from the resolved typeface's real glyph advances so caret /
-        // selection / hit-testing align with what DrawText actually renders (no monospace guess).
-        private float[]? _cumulativeX;
-        private float _ascent;
-        private float _descent;
-        private float _leading;
-
-        public CanvasTextLayout(CanvasDevice device, string text, CanvasTextFormat format, float maxWidth, float maxHeight)
-        {
-            _text = text ?? string.Empty;
-            _textFormat = format;
-            _maxWidth = maxWidth;
-            _maxHeight = maxHeight;
-        }
-
-        public string Text => _text;
-        public CanvasTextFormat Format => _textFormat;
-        public float MaxWidth => _maxWidth;
-        public float MaxHeight => _maxHeight;
-
-        private void EnsureMetrics()
-        {
-            if (_cumulativeX is not null)
-                return;
-
-            using SKFont font = new SKFont(_textFormat.ResolveTypeface(), _textFormat.FontSize);
-            SKFontMetrics fontMetrics = font.Metrics;
-            _ascent = -fontMetrics.Ascent;        // Skia ascent is negative (above baseline)
-            _descent = fontMetrics.Descent;       // positive (below baseline)
-            _leading = fontMetrics.Leading;
-
-            int len = _text.Length;
-            var cumulative = new float[len + 1];
-            if (len == 0)
+            if (string.IsNullOrEmpty(text)
+                || float.IsInfinity(maxWidth)
+                || maxWidth <= 0
+                || TrimmingGranularity == CanvasTrimmingGranularity.None)
             {
-                _cumulativeX = cumulative;
-                return;
+                return text;
             }
 
-            // One glyph per Unicode code point; the high surrogate of a pair carries the advance,
-            // the trailing low surrogate gets zero so caret indices map back to UTF-16 offsets.
-            ushort[] glyphs = font.GetGlyphs(_text);
+            string delimiter = string.IsNullOrEmpty(TrimmingDelimiter)
+                ? "\u2026"
+                : string.Concat(Enumerable.Repeat(TrimmingDelimiter, Math.Max(1, TrimmingDelimiterCount)));
+
+            using SKFont font = new(ResolveTypeface(), FontSize);
+            if (MeasureTextWithSpacing(font, text) <= maxWidth)
+                return text;
+
+            if (MeasureTextWithSpacing(font, delimiter) > maxWidth)
+                return string.Empty;
+
+            string candidate = text;
+            while (candidate.Length > 0)
+            {
+                candidate = TrimmingGranularity == CanvasTrimmingGranularity.Word
+                    ? TrimOneWord(candidate)
+                    : candidate[..^1];
+
+                string trimmed = candidate + delimiter;
+                if (MeasureTextWithSpacing(font, trimmed) <= maxWidth)
+                    return trimmed;
+            }
+
+            return delimiter;
+        }
+
+        internal float MeasureTextWithSpacing(SKFont font, string text)
+        {
+            if (string.IsNullOrEmpty(text))
+                return 0f;
+
+            ushort[] glyphs = font.GetGlyphs(text);
             float[] widths = font.GetGlyphWidths(glyphs);
+            float width = widths.Sum();
 
-            int glyphIndex = 0;
-            float x = 0f;
-            for (int i = 0; i < len; i++)
+            if (LetterSpacing != 0 && text.Length > 1)
+                width += LetterSpacing * (text.Length - 1);
+
+            if (WordSpacing != 0)
+                width += WordSpacing * text.Count(char.IsWhiteSpace);
+
+            return width;
+        }
+
+        private static string TrimOneWord(string text)
+        {
+            string trimmed = text.TrimEnd();
+            int lastWhitespace = trimmed.LastIndexOfAny(new[] { ' ', '\t', '\r', '\n' });
+            return lastWhitespace <= 0 ? string.Empty : trimmed[..lastWhitespace].TrimEnd();
+        }
+
+        private static SKFontStyleWeight ToSkFontStyleWeight(int weight)
+        {
+            return weight switch
             {
-                cumulative[i] = x;
-                if (char.IsLowSurrogate(_text[i]))
-                {
-                    // Trailing unit of a surrogate pair — advance was already applied at the lead unit.
-                    continue;
-                }
-
-                float advance = glyphIndex < widths.Length ? widths[glyphIndex] : 0f;
-                glyphIndex++;
-                x += advance;
-            }
-            cumulative[len] = x;
-            _cumulativeX = cumulative;
-        }
-
-        private float TotalWidth
-        {
-            get { EnsureMetrics(); return _cumulativeX![_cumulativeX.Length - 1]; }
-        }
-
-        private float LineHeight
-        {
-            get { EnsureMetrics(); return _ascent + _descent + _leading; }
-        }
-
-        /// <summary>The bounds of the laid-out text. Single line (the editor formats one line at a time).</summary>
-        public Rect LayoutBounds
-        {
-            get { EnsureMetrics(); return new Rect(0, 0, TotalWidth, LineHeight); }
-        }
-
-        /// <summary>
-        /// Layout bounds including trailing whitespace. This shim's advance accumulation already
-        /// counts whitespace glyph advances, so it equals <see cref="LayoutBounds"/>. (Real Win2D's
-        /// plain LayoutBounds excludes trailing whitespace, which would collapse spaces between
-        /// runs — callers measuring run advances must use this property for parity.)
-        /// </summary>
-        public Rect LayoutBoundsIncludingTrailingWhitespace
-        {
-            get { EnsureMetrics(); return new Rect(0, 0, TotalWidth, LineHeight); }
-        }
-
-        /// <summary>The bounds of the inked pixels. Approximated by the layout bounds for this shim.</summary>
-        public Rect DrawBounds => LayoutBounds;
-
-        public CanvasLineMetrics[] LineMetrics
-        {
-            get
-            {
-                EnsureMetrics();
-                return new[]
-                {
-                    new CanvasLineMetrics
-                    {
-                        CharacterCount = _text.Length,
-                        TrailingWhitespaceCount = CountTrailingWhitespace(),
-                        TerminalNewlineCount = 0,
-                        Height = LineHeight,
-                        Baseline = _ascent,
-                    }
-                };
-            }
-        }
-
-        /// <summary>
-        /// Returns the position of the caret for a character index. Mirrors Win2D:
-        /// <paramref name="trailingSideOfCharacter"/> selects the trailing (right) edge.
-        /// </summary>
-        public System.Numerics.Vector2 GetCaretPosition(int characterIndex, bool trailingSideOfCharacter)
-        {
-            EnsureMetrics();
-            int idx = characterIndex + (trailingSideOfCharacter ? 1 : 0);
-            idx = Math.Clamp(idx, 0, _cumulativeX!.Length - 1);
-            return new System.Numerics.Vector2(_cumulativeX[idx], 0f);
-        }
-
-        /// <summary>Hit-tests a point, returning the character region under it.</summary>
-        public CanvasTextLayoutRegion HitTest(float x, float y)
-        {
-            EnsureMetrics();
-            int len = _text.Length;
-            var region = new CanvasTextLayoutRegion { CharacterIndex = 0, CharacterCount = 0, LayoutBounds = new Rect(0, 0, 0, LineHeight) };
-            if (len == 0)
-                return region;
-
-            // Find the character whose [leading, trailing) advance span contains x.
-            for (int i = 0; i < len; i++)
-            {
-                // Skip the trailing unit of a surrogate pair — it shares the lead unit's span.
-                int next = i + 1;
-                while (next < len && char.IsLowSurrogate(_text[next]))
-                    next++;
-
-                float left = _cumulativeX![i];
-                float right = _cumulativeX[next];
-                if (x < right || next >= len)
-                {
-                    region.CharacterIndex = i;
-                    region.CharacterCount = next - i;
-                    region.LayoutBounds = new Rect(left, 0, Math.Max(0, right - left), LineHeight);
-                    return region;
-                }
-                i = next - 1;
-            }
-
-            // Past the end — caret after the last character.
-            region.CharacterIndex = Math.Max(0, len - 1);
-            region.CharacterCount = 0;
-            region.LayoutBounds = new Rect(_cumulativeX![len], 0, 0, LineHeight);
-            return region;
-        }
-
-        /// <summary>Returns the bounding regions of a character range.</summary>
-        public CanvasTextLayoutRegion[] GetCharacterRegions(int characterIndex, int characterCount)
-        {
-            EnsureMetrics();
-            int len = _text.Length;
-            int start = Math.Clamp(characterIndex, 0, len);
-            int end = Math.Clamp(characterIndex + characterCount, start, len);
-            if (end <= start)
-                return Array.Empty<CanvasTextLayoutRegion>();
-
-            float left = _cumulativeX![start];
-            float right = _cumulativeX[end];
-            return new[]
-            {
-                new CanvasTextLayoutRegion
-                {
-                    CharacterIndex = start,
-                    CharacterCount = end - start,
-                    LayoutBounds = new Rect(left, 0, Math.Max(0, right - left), LineHeight),
-                }
+                <= 100 => SKFontStyleWeight.Thin,
+                <= 200 => SKFontStyleWeight.ExtraLight,
+                <= 300 => SKFontStyleWeight.Light,
+                <= 350 => SKFontStyleWeight.Light,
+                <= 400 => SKFontStyleWeight.Normal,
+                <= 500 => SKFontStyleWeight.Medium,
+                <= 600 => SKFontStyleWeight.SemiBold,
+                <= 700 => SKFontStyleWeight.Bold,
+                <= 800 => SKFontStyleWeight.ExtraBold,
+                <= 900 => SKFontStyleWeight.Black,
+                _ => SKFontStyleWeight.Black,
             };
-        }
-
-        private int CountTrailingWhitespace()
-        {
-            int count = 0;
-            for (int i = _text.Length - 1; i >= 0 && char.IsWhiteSpace(_text[i]); i--)
-                count++;
-            return count;
-        }
-
-        public SKPath CreatePath()
-        {
-            using SKFont font = new SKFont(_textFormat.ResolveTypeface(), _textFormat.FontSize);
-            return font.GetTextPath(_text, new SKPoint(0, 0));
         }
 
         public void Dispose()

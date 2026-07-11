@@ -40,4 +40,20 @@ namespace Microsoft.Graphics.Canvas.Text
         /// <summary>The distance, in DIPs, from the top of the line to its baseline.</summary>
         public float Baseline { get; set; }
     }
+
+    /// <summary>
+    /// Per-cluster metrics for a <see cref="CanvasTextLayout"/>.
+    /// </summary>
+    public struct CanvasClusterMetrics
+    {
+        public int CharacterIndex { get; set; }
+        public int CharacterCount { get; set; }
+        public int GlyphCount { get; set; }
+        public float Width { get; set; }
+        public bool CanWrapLineAfter { get; set; }
+        public bool IsWhitespace { get; set; }
+        public bool IsNewline { get; set; }
+        public bool IsSoftHyphen { get; set; }
+        public bool IsRightToLeft { get; set; }
+    }
 }

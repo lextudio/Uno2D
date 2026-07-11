@@ -94,4 +94,65 @@ public sealed class CanvasTextLayoutTests
         metrics[0].TrailingWhitespaceCount.Should().Be(2);
         metrics[0].Baseline.Should().BeGreaterThan(0);
     }
+
+    [Fact]
+    public void RequestedSize_AndMinimumSize_AreReported()
+    {
+        var format = new CanvasTextFormat { FontFamily = "Consolas", FontSize = 16 };
+        using var layout = new CanvasTextLayout(CanvasDevice.GetSharedDevice(), "size", format, 123, 45);
+
+        layout.RequestedSize.Width.Should().Be(123);
+        layout.RequestedSize.Height.Should().Be(45);
+        layout.MinimumSize.Width.Should().BeGreaterThan(0);
+        layout.MinimumSize.Height.Should().BeGreaterThan(0);
+    }
+
+    [Fact]
+    public void ClusterMetrics_ReportOneClusterPerCharacter()
+    {
+        using var layout = CreateLayout("a b");
+
+        var clusters = layout.ClusterMetrics;
+
+        clusters.Should().HaveCount(3);
+        clusters[0].CharacterIndex.Should().Be(0);
+        clusters[0].CharacterCount.Should().Be(1);
+        clusters[0].Width.Should().BeGreaterThan(0);
+        clusters[1].IsWhitespace.Should().BeTrue();
+        clusters[1].CanWrapLineAfter.Should().BeTrue();
+    }
+
+    [Fact]
+    public void RangeProperties_ReturnOverridesInsideRange()
+    {
+        using var layout = CreateLayout("abcdef", 16);
+        object effect = new();
+
+        layout.SetFontSize(1, 3, 24);
+        layout.SetLocale(2, 2, "fr-FR");
+        layout.SetUnderline(0, 2, true);
+        layout.SetStrikethrough(4, 2, true);
+        layout.SetDrawingEffect(3, 1, effect);
+
+        layout.GetFontSize(0).Should().Be(16);
+        layout.GetFontSize(2).Should().Be(24);
+        layout.GetLocale(1).Should().BeEmpty();
+        layout.GetLocale(2).Should().Be("fr-FR");
+        layout.GetUnderline(1).Should().BeTrue();
+        layout.GetUnderline(2).Should().BeFalse();
+        layout.GetStrikethrough(3).Should().BeFalse();
+        layout.GetStrikethrough(4).Should().BeTrue();
+        layout.GetDrawingEffect(3).Should().BeSameAs(effect);
+    }
+
+    [Fact]
+    public void DrawToBitmap_WritesTextPixels()
+    {
+        using var layout = CreateLayout("A", 24);
+        byte[] pixels = new byte[64 * 64 * 4];
+
+        layout.DrawToBitmap(pixels, 2, 2, 64, 64);
+
+        pixels.Should().Contain(value => value != 0);
+    }
 }

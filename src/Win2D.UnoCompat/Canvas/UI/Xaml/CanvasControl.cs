@@ -1,5 +1,7 @@
 using SkiaSharp.Views.Windows;
 using System;
+using Windows.Foundation;
+using Windows.UI;
 
 namespace Microsoft.Graphics.Canvas.UI.Xaml
 {
@@ -15,9 +17,12 @@ namespace Microsoft.Graphics.Canvas.UI.Xaml
         public Canvas.CanvasDrawingSession DrawingSession { get; }
     }
 
-    public sealed class CanvasControl : SKXamlCanvas
+    public class CanvasControl : SKXamlCanvas
     {
         public event TypedCanvasDrawEventHandler? Draw;
+        public event TypedCanvasCreateResourcesEventHandler? CreateResources;
+
+        private bool _resourcesCreated;
 
         public CanvasControl()
         {
@@ -26,9 +31,9 @@ namespace Microsoft.Graphics.Canvas.UI.Xaml
 
         private void OnPaintSurface(object? sender, SKPaintSurfaceEventArgs e)
         {
+            EnsureResourcesCreated();
+
             // Unify drawing coordinates with XAML pointer/layout coordinates (DIP).
-            // SK surface size is device pixels; ActualWidth/ActualHeight are DIP.
-            // Without this scaling, content appears cramped to top-left and hit-testing drifts.
             if (TryComputeDipScale(e.Info.Width, e.Info.Height, ActualWidth, ActualHeight, out float sx, out float sy))
             {
                 e.Surface.Canvas.Scale(sx, sy);
@@ -41,6 +46,46 @@ namespace Microsoft.Graphics.Canvas.UI.Xaml
         public new void Invalidate()
         {
             base.Invalidate();
+        }
+
+        public void RemoveFromVisualTree()
+        {
+            PaintSurface -= OnPaintSurface;
+        }
+
+        public CanvasDevice Device => CanvasDevice.GetSharedDevice();
+
+        public CanvasDevice? CustomDevice { get; set; }
+
+        public new float Dpi => 96f;
+
+        public float DpiScale => 1f;
+
+        public bool ForceSoftwareRenderer { get; set; }
+
+        public bool ReadyToDraw => true;
+
+        public Size Size => new(ActualWidth, ActualHeight);
+
+        public bool UseSharedDevice { get; set; } = true;
+
+        public Color ClearColor { get; set; } = Color.FromArgb(255, 255, 255, 255);
+
+        public float ConvertDipsToPixels(float dips)
+        {
+            return dips * Dpi / 96f;
+        }
+
+        public float ConvertPixelsToDips(float pixels)
+        {
+            return pixels * 96f / Dpi;
+        }
+
+        private void EnsureResourcesCreated()
+        {
+            if (_resourcesCreated) return;
+            _resourcesCreated = true;
+            CreateResources?.Invoke(this, new CanvasCreateResourcesEventArgs(CanvasDevice.GetSharedDevice()));
         }
 
         public static bool TryComputeDipScale(

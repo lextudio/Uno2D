@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MSTest.TestAdapter" Version="3.8.3" />
+    <PackageReference Include="MSTest.TestFramework" Version="3.8.3" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Win2D.UnoCompat/Win2D.UnoCompat.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="../../winrt/Win2D/winrt/test.managed/CanvasBitmapTests.cs" Link="Win2D/CanvasBitmapTests.cs" />
+    <Compile Include="../../winrt/Win2D/winrt/test.managed/CanvasImageTests.cs" Link="Win2D/CanvasImageTests.cs" />
+    <Compile Include="../../winrt/Win2D/winrt/test.managed/DpiTests.cs" Link="Win2D/DpiTests.cs" />
+    <Compile Include="../../winrt/Win2D/winrt/test.managed/EffectTests.cs" Link="Win2D/EffectTests.cs" />
+    <Compile Include="../../winrt/Win2D/winrt/test.managed/InkTests.cs" Link="Win2D/InkTests.cs" />
+    <Compile Include="../../winrt/Win2D/winrt/test.managed/PixelFormatTests.cs" Link="Win2D/PixelFormatTests.cs" />
+    <Compile Include="../../winrt/Win2D/winrt/test.managed/PixelShaderEffectTests.cs" Link="Win2D/PixelShaderEffectTests.cs" />
+    <Compile Include="../../winrt/Win2D/winrt/test.managed/ReflectionTests.cs" Link="Win2D/ReflectionTests.cs" />
+    <Compile Include="../../winrt/Win2D/winrt/test.managed/Utils.cs" Link="Win2D/Utils.cs" />
+    <Compile Include="../../winrt/Win2D/winrt/test.managed/GraphicsInterop.cs" Link="Win2D/GraphicsInterop.cs" />
+    <Compile Include="../../winrt/Win2D/winrt/test.managed/VectorInterop.cs" Link="Win2D/VectorInterop.cs" />
+    <Compile Include="../../winrt/Win2D/winrt/test.managed/DebugLayer.cs" Link="Win2D/DebugLayer.cs" />
+    <Compile Include="../../winrt/Win2D/winrt/test.managed/PathReceiver.cs" Link="Win2D/PathReceiver.cs" />
+  </ItemGroup>
+</Project>

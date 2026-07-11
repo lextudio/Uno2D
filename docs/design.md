@@ -179,3 +179,55 @@ The Win2D compatibility shim on SkiaSharp should remain:
 - DPI-aware and coordinate-consistent across platforms
 
 This design forms the basis for expanding the shim gradually while preserving Win2D-style developer expectations.
+
+---
+
+## Parity Matrix & Session Roadmap
+
+### Overall coverage: ~9% (51 / ~600 public members)
+
+Legend: ✅ Implemented | 🔶 Partial | ❌ Not started
+
+| Type | Members Done | Real Win2D | Coverage | Status |
+|------|:-----------:|:----------:|:--------:|:------:|
+| CanvasDevice | 1 | ~50 | 2% | 🔶 `GetSharedDevice` only |
+| CanvasRenderTarget | 6 | ~30 | 20% | 🔶 Basic lifecycle only |
+| CanvasDrawingSession | 26 | ~200+ | 13% | 🔶 Core primitives + ellipse, geometry, textlayout, layer, transform, blend |
+| CanvasTextFormat | 6 | ~30 | 20% | 🔶 Basic properties only |
+| CanvasTextLayout | 14 | ~60 | 23% | 🔶 Layout + metrics only |
+| CanvasGeometry | 20 | ~40 | 50% | 🔶 Factories + combine + stroke + hit-testing |
+| CanvasStrokeStyle | 4 | ~15 | 27% | 🔶 Core properties |
+| CanvasControl | 4 | ~20 | 20% | 🔶 Basic Draw + Invalidate |
+| CanvasBitmap | 14 | ~30 | 47% | 🔶 Create/load/save/pixels/bounds/render-target capture |
+| CanvasCommandList | 4 | ~15 | 27% | 🔶 Surface-backed record/replay |
+| CanvasImageSource | 6 | ~10 | 60% | 🔶 Surface-backed snapshot source |
+| CanvasVirtualImageSource | 5 | ~10 | 50% | 🔶 Large surface + invalid region tracking |
+| CanvasAnimatedControl | 10 | ~20 | 50% | 🔶 Tickable game-loop + resource/update events |
+| CanvasSpriteBatch | 7 | ~10 | 70% | 🔶 Queued bitmap sprite rendering |
+| Brushes | 16 | ~20+ | 70% | 🔶 Solid/image/linear/radial fill brushes |
+| Effects | 18 | ~50+ | 36% | 🔶 8 raster effects + DrawImage integration |
+| Geometry operations | 18 | ~20+ | 80% | 🔶 Combine/stroke/hit-test/cache |
+| CanvasPathBuilder | 0 | ~15+ | 0% | ❌ |
+| Printing | 5 | ~10 | 50% | 🔶 PDF rendering path |
+| SVG / Ink / Typography | 12 | ~20+ | 55% | 🔶 Basic SVG, ink strokes, typography features |
+
+### Session plan
+
+| Session | Area | Target Coverage | Effort |
+|:-------:|------|:--------------:|:------:|
+| 1 | P0 baseline (done) | 9% | 3h |
+| 2 | CanvasDrawingSession: ellipses, geometry, textlayout, transform, blend | ✅ 11% | 4h |
+| 3 | CanvasGeometry: shape factories + geometric operations | ✅ 13% (16 new members) | 5h |
+| 4 | CanvasPathBuilder | 20% | 4h |
+| 5 | CanvasTextFormat: weight, stretch, trimming, spacing | 24% | 4h |
+| 6 | CanvasTextLayout: cluster metrics, range properties, DrawToBitmap | 27% | 5h |
+| 7 | CanvasBitmap: load/save/copy/create | ✅ 33% | 5h |
+| 8 | Brushes: SolidColor, Image, Gradient | ✅ 37% | 5h |
+| 9 | CanvasCommandList + CanvasCachedGeometry | ✅ 40% | 4h |
+| 10 | Effects pipeline: blur, color matrix, shadow, composite, etc. | ✅ 50% | 6.5h |
+| 11 | ImageSource + VirtualImageSource + SpriteBatch | ✅ 55% | 5h |
+| 12 | CanvasAnimatedControl + SwapChainPanel | ✅ 60% | 4.5h |
+| 13 | Remaining: Printing, SVG, Ink, Typography | ✅ 70% | 6h |
+
+Each session's detailed plan is in `docs/session{N}.md`.
+Target after all 13 sessions: ~70% API coverage covering all commonly-used Win2D scenarios.
