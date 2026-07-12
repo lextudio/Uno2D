@@ -1,33 +1,46 @@
 using SkiaSharp;
+using System.Runtime.InteropServices;
 using Windows.Foundation;
 using Windows.UI;
+using Windows.Graphics.DirectX;
+using Windows.Storage.Streams;
+
+// COM interface for IBuffer byte access
+[System.Runtime.InteropServices.Guid("5B0D3235-4DBA-4D44-865E-8F1D0E4FD04D")]
+[System.Runtime.InteropServices.InterfaceType(System.Runtime.InteropServices.ComInterfaceType.InterfaceIsIUnknown)]
+unsafe interface IMemoryBufferByteAccess
+{
+    void GetBuffer(out byte* buffer, out uint capacity);
+}
 
 namespace Microsoft.Graphics.Canvas
 {
     public sealed class CanvasBitmap : Microsoft.Graphics.Canvas.Effects.ICanvasImage, IDisposable
     {
         private readonly SKBitmap _bitmap;
+        private readonly CanvasDevice _device;
         private bool _disposed;
 
-        private CanvasBitmap(SKBitmap bitmap, float dpi)
+        private CanvasBitmap(SKBitmap bitmap, float dpi, CanvasDevice? device = null)
         {
             _bitmap = bitmap;
+            _device = device ?? CanvasDevice.GetSharedDevice();
             Dpi = dpi;
         }
 
-        internal static CanvasBitmap CreateFromSkBitmap(SKBitmap bitmap, float dpi)
+        internal static CanvasBitmap CreateFromSkBitmap(SKBitmap bitmap, float dpi, CanvasDevice? device = null)
         {
             ArgumentNullException.ThrowIfNull(bitmap);
-            return new CanvasBitmap(bitmap.Copy(), dpi);
+            return new CanvasBitmap(bitmap.Copy(), dpi, device);
         }
 
         public float Dpi { get; }
 
-        public CanvasDevice Device => CanvasDevice.GetSharedDevice();
+        public CanvasDevice Device => _device;
 
         public CanvasAlphaMode AlphaMode { get; set; } = CanvasAlphaMode.Premultiplied;
 
-        public CanvasBitmapFileFormat Format { get; set; } = CanvasBitmapFileFormat.Auto;
+        public DirectXPixelFormat Format { get; set; } = DirectXPixelFormat.B8G8R8A8UIntNormalized;
 
         public string Description => $"CanvasBitmap ({_bitmap.Width}x{_bitmap.Height})";
 
@@ -81,24 +94,147 @@ namespace Microsoft.Graphics.Canvas
 
             SKBitmap bitmap = SKBitmap.Decode(stream)
                 ?? throw new InvalidOperationException("Unable to decode bitmap stream.");
-            return Task.FromResult(new CanvasBitmap(bitmap, 96f));
+            return Task.FromResult(new CanvasBitmap(bitmap, 96f, device));
         }
 
-        public static CanvasBitmap CreateFromBytes(CanvasDevice device, byte[] pixels, int width, int height, float dpi = 96f)
+        public static async Task<CanvasBitmap> LoadAsync(CanvasDevice device, IRandomAccessStream stream)
+        {
+            ArgumentNullException.ThrowIfNull(device);
+            ArgumentNullException.ThrowIfNull(stream);
+
+            using var dotnetStream = stream.AsStreamForRead();
+            return await LoadAsync(device, dotnetStream).ConfigureAwait(false);
+        }
+
+        private static int GetBytesPerPixel(DirectXPixelFormat format) => format switch
+        {
+            DirectXPixelFormat.A8UIntNormalized => 1,
+            DirectXPixelFormat.R8UIntNormalized => 1,
+            DirectXPixelFormat.R8G8UIntNormalized => 2,
+            DirectXPixelFormat.R8G8B8A8UIntNormalized => 4,
+            DirectXPixelFormat.B8G8R8A8UIntNormalized => 4,
+            DirectXPixelFormat.B8G8R8X8UIntNormalized => 4,
+            DirectXPixelFormat.R8G8B8A8UIntNormalizedSrgb => 4,
+            DirectXPixelFormat.B8G8R8A8UIntNormalizedSrgb => 4,
+            DirectXPixelFormat.R10G10B10A2UIntNormalized => 4,
+            DirectXPixelFormat.R16G16B16A16UIntNormalized => 8,
+            DirectXPixelFormat.R16G16B16A16Float => 8,
+            DirectXPixelFormat.R32G32B32A32Float => 16,
+            DirectXPixelFormat.BC1UIntNormalized => 0,
+            DirectXPixelFormat.BC2UIntNormalized => 0,
+            DirectXPixelFormat.BC3UIntNormalized => 0,
+            _ => 4,
+        };
+
+        public static CanvasBitmap CreateFromBytes(CanvasDevice device, byte[] pixels, int width, int height, DirectXPixelFormat format, float dpi = 96f, CanvasAlphaMode alphaMode = CanvasAlphaMode.Premultiplied)
         {
             ArgumentNullException.ThrowIfNull(device);
             ArgumentNullException.ThrowIfNull(pixels);
             if (width <= 0) throw new ArgumentOutOfRangeException(nameof(width));
             if (height <= 0) throw new ArgumentOutOfRangeException(nameof(height));
 
-            int required = checked(width * height * 4);
+            if (!device.IsPixelFormatSupported(format))
+                throw new ArgumentException("The bitmap pixel format is unsupported. 0x88982F80");
+
+            alphaMode = ResolveDefaultAlphaMode(format, alphaMode);
+            ValidateAlphaMode(format, alphaMode);
+
+            int bpp = GetBytesPerPixel(format);
+            int required = checked(width * height * Math.Max(bpp, 1));
             if (pixels.Length < required)
                 throw new ArgumentException("The pixel buffer is too small.", nameof(pixels));
 
             var info = new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Premul);
             var bitmap = new SKBitmap(info);
             System.Runtime.InteropServices.Marshal.Copy(pixels, 0, bitmap.GetPixels(), required);
-            return new CanvasBitmap(bitmap, dpi);
+            return new CanvasBitmap(bitmap, dpi, device) { Format = format, AlphaMode = alphaMode };
+        }
+
+        internal static CanvasAlphaMode ResolveDefaultAlphaMode(DirectXPixelFormat format, CanvasAlphaMode alphaMode)
+        {
+            if (alphaMode != CanvasAlphaMode.Premultiplied)
+                return alphaMode;
+
+            foreach (var candidate in new[] { CanvasAlphaMode.Premultiplied, CanvasAlphaMode.Ignore, CanvasAlphaMode.Straight })
+            {
+                if (IsAlphaModeSupported(format, candidate))
+                    return candidate;
+            }
+
+            return alphaMode;
+        }
+
+        internal static bool IsAlphaModeSupported(DirectXPixelFormat format, CanvasAlphaMode alphaMode)
+        {
+            bool premul = alphaMode == CanvasAlphaMode.Premultiplied;
+            bool straight = alphaMode == CanvasAlphaMode.Straight;
+            bool ignore = alphaMode == CanvasAlphaMode.Ignore;
+
+            return format switch
+            {
+                DirectXPixelFormat.R8G8B8A8UIntNormalized => premul || ignore,
+                DirectXPixelFormat.B8G8R8A8UIntNormalized => premul || ignore,
+                DirectXPixelFormat.B8G8R8X8UIntNormalized => ignore,
+                DirectXPixelFormat.R8G8B8A8UIntNormalizedSrgb => premul || ignore,
+                DirectXPixelFormat.B8G8R8A8UIntNormalizedSrgb => premul || ignore,
+                DirectXPixelFormat.R10G10B10A2UIntNormalized => premul || ignore,
+                DirectXPixelFormat.R16G16B16A16UIntNormalized => premul || ignore,
+                DirectXPixelFormat.R16G16B16A16Float => premul || ignore,
+                DirectXPixelFormat.R32G32B32A32Float => premul || ignore,
+                DirectXPixelFormat.A8UIntNormalized => premul || straight,
+                DirectXPixelFormat.R8UIntNormalized => ignore,
+                DirectXPixelFormat.R8G8UIntNormalized => ignore,
+                DirectXPixelFormat.BC1UIntNormalized => premul || ignore,
+                DirectXPixelFormat.BC2UIntNormalized => premul || ignore,
+                DirectXPixelFormat.BC3UIntNormalized => premul || ignore,
+                _ => true,
+            };
+        }
+
+        internal static void ValidateAlphaMode(DirectXPixelFormat format, CanvasAlphaMode alphaMode)
+        {
+            if (!IsAlphaModeSupported(format, alphaMode))
+                throw new ArgumentException("The bitmap pixel format is unsupported. 0x88982F80");
+        }
+
+        public static CanvasBitmap CreateFromBytes(CanvasDevice device, IBuffer buffer, int width, int height, DirectXPixelFormat format, float dpi = 96f, CanvasAlphaMode alphaMode = CanvasAlphaMode.Premultiplied)
+        {
+            ArgumentNullException.ThrowIfNull(device);
+            if (buffer is null)
+                throw new ArgumentException("Buffer cannot be null.", nameof(buffer));
+            if (width <= 0) throw new ArgumentOutOfRangeException(nameof(width));
+            if (height <= 0) throw new ArgumentOutOfRangeException(nameof(height));
+
+            byte[] pixels = CopyBufferToBytes(buffer);
+            return CreateFromBytes(device, pixels, width, height, format, dpi, alphaMode);
+        }
+
+        private static byte[] CopyBufferToBytes(IBuffer buffer)
+        {
+            byte[] result = new byte[buffer.Length];
+            if (buffer.Length > 0)
+            {
+                System.Runtime.InteropServices.WindowsRuntime.WindowsRuntimeBufferExtensions.CopyTo(buffer, result);
+            }
+            return result;
+        }
+
+        private static void WriteBufferFromBytes(IBuffer buffer, byte[] data)
+        {
+            if (data.Length > 0 && buffer.Length > 0)
+            {
+                System.Runtime.InteropServices.WindowsRuntime.WindowsRuntimeBufferExtensions.CopyTo(data, 0, buffer, 0, data.Length);
+            }
+        }
+
+        public byte[] GetPixelBytes()
+        {
+            ThrowIfDisposed();
+            using SKPixmap pixmap = _bitmap.PeekPixels();
+            int byteCount = pixmap.RowBytes * pixmap.Height;
+            byte[] result = new byte[byteCount];
+            System.Runtime.InteropServices.Marshal.Copy(pixmap.GetPixels(), result, 0, byteCount);
+            return result;
         }
 
         public void SetPixelBytes(byte[] pixels)
@@ -110,6 +246,82 @@ namespace Microsoft.Graphics.Canvas
                 throw new ArgumentException("The pixel buffer is too small.", nameof(pixels));
             System.Runtime.InteropServices.Marshal.Copy(pixels, 0, _bitmap.GetPixels(), required);
             _bitmap.NotifyPixelsChanged();
+        }
+
+        public void SetPixelBytes(IBuffer buffer)
+        {
+            if (buffer is null)
+                throw new ArgumentException("Buffer cannot be null.", nameof(buffer));
+            ThrowIfDisposed();
+            byte[] data = CopyBufferToBytes(buffer);
+            SetPixelBytes(data);
+        }
+
+        public void SetPixelBytes(IBuffer buffer, int x, int y, int width, int height)
+        {
+            if (buffer is null)
+                throw new ArgumentException("Buffer cannot be null.", nameof(buffer));
+            ThrowIfDisposed();
+            byte[] data = CopyBufferToBytes(buffer);
+            int requiredBytes = checked(width * height * 4);
+            if (data.Length < requiredBytes)
+                throw new ArgumentException($"The array was expected to be of size {requiredBytes}; actual array was of size {data.Length}.", nameof(buffer));
+            SetPixelBytes(data, 0, 0, x, y, width, height);
+        }
+
+        public void GetPixelBytes(IBuffer buffer)
+        {
+            ArgumentNullException.ThrowIfNull(buffer);
+            ThrowIfDisposed();
+
+            using SKPixmap pixmap = _bitmap.PeekPixels();
+            int byteCount = pixmap.RowBytes * pixmap.Height;
+            if (buffer.Capacity < (uint)byteCount)
+                throw new ArgumentException($"The array was expected to be of size {byteCount}; actual array was of size {buffer.Capacity}.", nameof(buffer));
+
+            byte[] result = new byte[byteCount];
+            System.Runtime.InteropServices.Marshal.Copy(pixmap.GetPixels(), result, 0, byteCount);
+            WriteBufferFromBytes(buffer, result);
+        }
+
+        public void GetPixelBytes(IBuffer buffer, int x, int y, int width, int height)
+        {
+            if (buffer is null)
+                throw new ArgumentException("Buffer cannot be null.", nameof(buffer));
+            ThrowIfDisposed();
+            if (x < 0 || x >= _bitmap.Width)
+                throw new ArgumentOutOfRangeException(nameof(x));
+            if (y < 0 || y >= _bitmap.Height)
+                throw new ArgumentOutOfRangeException(nameof(y));
+            if (width <= 0 || x + width > _bitmap.Width)
+                throw new ArgumentOutOfRangeException(nameof(width));
+            if (height <= 0 || y + height > _bitmap.Height)
+                throw new ArgumentOutOfRangeException(nameof(height));
+
+            int requiredBytes = checked(width * height * 4);
+            if (buffer.Capacity < (uint)requiredBytes)
+                throw new ArgumentException($"The array was expected to be of size {requiredBytes}; actual array was of size {buffer.Capacity}.", nameof(buffer));
+
+            byte[] result = new byte[requiredBytes];
+            int offset = 0;
+            for (int row = 0; row < height; row++)
+            {
+                for (int column = 0; column < width; column++)
+                {
+                    SKColor color = _bitmap.GetPixel(x + column, y + row);
+                    result[offset++] = color.Blue;
+                    result[offset++] = color.Green;
+                    result[offset++] = color.Red;
+                    result[offset++] = color.Alpha;
+                }
+            }
+
+            WriteBufferFromBytes(buffer, result);
+        }
+
+        public void SetPixelBytes(byte[] sourceBytes, int sourceOffset, int sourceStride, int destinationX, int destinationY, int width, int height)
+        {
+            throw new NotImplementedException();
         }
 
         public void SetPixelColors(Color[] colors)
@@ -157,13 +369,13 @@ namespace Microsoft.Graphics.Canvas
                 }
             }
 
-            return new CanvasBitmap(bitmap, dpi);
+            return new CanvasBitmap(bitmap, dpi, device);
         }
 
         public static CanvasBitmap CreateFromRenderTarget(CanvasRenderTarget renderTarget)
         {
             ArgumentNullException.ThrowIfNull(renderTarget);
-            return new CanvasBitmap(renderTarget.SnapshotBitmap(), renderTarget.Dpi);
+            return new CanvasBitmap(renderTarget.SnapshotBitmap(), renderTarget.Dpi, renderTarget.Device);
         }
 
         public Rect GetBounds(CanvasDrawingSession drawingSession)

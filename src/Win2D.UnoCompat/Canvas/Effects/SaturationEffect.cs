@@ -6,8 +6,6 @@ namespace Microsoft.Graphics.Canvas.Effects
     {
         public float Saturation { get; set; } = 1f;
 
-        public new ICanvasImage? Source { get; set; }
-
         internal override SKImage GetImage()
         {
             float s = Saturation;

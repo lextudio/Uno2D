@@ -3,10 +3,14 @@ using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices.WindowsRuntime;
 using System.Threading.Tasks;
+using Microsoft.Graphics.Canvas.Effects;
+using Windows.Foundation;
+using Windows.UI;
+using Windows.Graphics.DirectX;
 
 namespace Microsoft.Graphics.Canvas
 {
-    public sealed class CanvasDevice
+    public sealed class CanvasDevice : ICanvasResourceCreator, IDisposable
     {
         private static readonly CanvasDevice _shared = new();
 
@@ -19,7 +23,7 @@ namespace Microsoft.Graphics.Canvas
 
         public event EventHandler<object>? DeviceLost;
 
-        public CanvasDebugLevel DebugLevel { get; set; } = CanvasDebugLevel.None;
+        public static CanvasDebugLevel DebugLevel { get; set; } = CanvasDebugLevel.None;
 
         public bool ForceSoftwareRenderer { get; set; }
 
@@ -48,6 +52,29 @@ namespace Microsoft.Graphics.Canvas
         public bool IsPixelFormatSupported(CanvasBitmapFileFormat format)
         {
             return true;
+        }
+
+        public bool IsPixelFormatSupported(DirectXPixelFormat format)
+        {
+            return format switch
+            {
+                DirectXPixelFormat.R8G8B8A8UIntNormalized or
+                DirectXPixelFormat.B8G8R8A8UIntNormalized or
+                DirectXPixelFormat.B8G8R8X8UIntNormalized or
+                DirectXPixelFormat.R8G8B8A8UIntNormalizedSrgb or
+                DirectXPixelFormat.B8G8R8A8UIntNormalizedSrgb or
+                DirectXPixelFormat.R10G10B10A2UIntNormalized or
+                DirectXPixelFormat.R16G16B16A16UIntNormalized or
+                DirectXPixelFormat.R16G16B16A16Float or
+                DirectXPixelFormat.R32G32B32A32Float or
+                DirectXPixelFormat.A8UIntNormalized or
+                DirectXPixelFormat.R8UIntNormalized or
+                DirectXPixelFormat.R8G8UIntNormalized or
+                DirectXPixelFormat.BC1UIntNormalized or
+                DirectXPixelFormat.BC2UIntNormalized or
+                DirectXPixelFormat.BC3UIntNormalized => true,
+                _ => false,
+            };
         }
 
         public object? GetDeviceLostReason()
@@ -95,26 +122,88 @@ namespace Microsoft.Graphics.Canvas
         Truncate,
     }
 
-    public sealed class CanvasRenderTarget : IDisposable
+    public sealed class CanvasRenderTarget : IDisposable, ICanvasImage
     {
         private readonly SKSurface _surface;
         private readonly CanvasDevice _device;
+        private readonly int _width;
+        private readonly int _height;
+
+        private static int ToIntPixels(float dips, float dpi)
+        {
+            return (int)Math.Round(dips * dpi / 96f);
+        }
 
         public CanvasRenderTarget(CanvasDevice device, int width, int height, float dpi)
         {
             _device = device ?? throw new ArgumentNullException(nameof(device));
+            _width = width;
+            _height = height;
             var info = new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Premul);
             _surface = SKSurface.Create(info) ?? throw new InvalidOperationException("Unable to create Skia surface.");
             Dpi = dpi;
+        }
+
+        public CanvasRenderTarget(ICanvasResourceCreatorWithDpi resourceCreator, int width, int height)
+            : this(resourceCreator.Device, width, height, resourceCreator.Dpi)
+        {
+        }
+
+        public CanvasRenderTarget(CanvasDevice device, float width, float height, float dpi)
+            : this(device, (int)Math.Round(width), (int)Math.Round(height), dpi)
+        {
+        }
+
+        public CanvasRenderTarget(CanvasDevice device, int width, int height, float dpi, DirectXPixelFormat format, CanvasAlphaMode alphaMode)
+        {
+            _device = device ?? throw new ArgumentNullException(nameof(device));
+            if (!device.IsPixelFormatSupported(format))
+                throw new ArgumentException("The bitmap pixel format is unsupported. 0x88982F80");
+            if (!IsRenderTargetPixelFormat(format))
+                throw new ArgumentException("The bitmap pixel format is unsupported. 0x88982F80");
+            CanvasBitmap.ValidateAlphaMode(format, alphaMode);
+            _width = width;
+            _height = height;
+            var info = new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Premul);
+            _surface = SKSurface.Create(info) ?? throw new InvalidOperationException("Unable to create Skia surface.");
+            Dpi = dpi;
+        }
+
+        internal static bool IsRenderTargetPixelFormat(DirectXPixelFormat format)
+        {
+            return format switch
+            {
+                DirectXPixelFormat.R8G8B8A8UIntNormalized or
+                DirectXPixelFormat.B8G8R8A8UIntNormalized or
+                DirectXPixelFormat.R8G8B8A8UIntNormalizedSrgb or
+                DirectXPixelFormat.B8G8R8A8UIntNormalizedSrgb or
+                DirectXPixelFormat.R16G16B16A16UIntNormalized or
+                DirectXPixelFormat.R16G16B16A16Float or
+                DirectXPixelFormat.R32G32B32A32Float or
+                DirectXPixelFormat.A8UIntNormalized => true,
+                _ => false,
+            };
         }
 
         public CanvasDevice Device => _device;
 
         public float Dpi { get; }
 
+        public Rect Bounds => new(0, 0, _width, _height);
+
+        public Size Size => new(_width, _height);
+
+        public Size SizeInPixels => new(ConvertDipsToPixels(_width), ConvertDipsToPixels(_height));
+
+        public int Width => _width;
+
+        public int Height => _height;
+
+        public float ConvertDipsToPixels(float dips) => dips * Dpi / 96f;
+
         public CanvasDrawingSession CreateDrawingSession()
         {
-            return new CanvasDrawingSession(_surface.Canvas, _device);
+            return new CanvasDrawingSession(_surface.Canvas, _device, Dpi);
         }
 
         public static CanvasRenderTarget CreateFromDirect3D11Surface(object direct3DSurface)
@@ -148,6 +237,40 @@ namespace Microsoft.Graphics.Canvas
             byte[] result = new byte[length];
             System.Runtime.InteropServices.Marshal.Copy(pix.GetPixels(), result, 0, length);
             return result;
+        }
+
+        public Color[] GetPixelColors()
+        {
+            SKPixmap pix = _surface.PeekPixels();
+            if (pix is null)
+                return Array.Empty<Color>();
+
+            var colors = new Color[_width * _height];
+            for (int y = 0; y < _height; y++)
+            {
+                for (int x = 0; x < _width; x++)
+                {
+                    SKColor color = pix.GetPixelColor(x, y);
+                    colors[y * _width + x] = Color.FromArgb(color.Alpha, color.Red, color.Green, color.Blue);
+                }
+            }
+            return colors;
+        }
+
+        internal SKImage GetImage()
+        {
+            return _surface.Snapshot();
+        }
+
+        public Task SaveAsync(string fileName)
+        {
+            return SaveAsync(fileName, CanvasBitmapFileFormat.Png);
+        }
+
+        public async Task SaveAsync(string fileName, CanvasBitmapFileFormat format)
+        {
+            using var stream = File.Create(fileName);
+            await SaveAsync(stream, format).ConfigureAwait(false);
         }
 
         public async Task SaveAsync(object stream, CanvasBitmapFileFormat format)

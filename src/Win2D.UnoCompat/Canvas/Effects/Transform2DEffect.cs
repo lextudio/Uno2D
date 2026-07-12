@@ -13,8 +13,6 @@ namespace Microsoft.Graphics.Canvas.Effects
 
         public float Sharpness { get; set; } = 1f;
 
-        public new ICanvasImage? Source { get; set; }
-
         internal override SKImage GetImage()
         {
             using SKImage input = RequireSourceImage(Source);

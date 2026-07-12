@@ -110,10 +110,18 @@ namespace Microsoft.Graphics.Canvas.Geometry
     public sealed class CanvasGeometry : IDisposable
     {
         private readonly SKPath _path;
+        private readonly IReadOnlyList<PathBuilderOp> _ops;
 
         private CanvasGeometry(SKPath path)
         {
             _path = path;
+            _ops = Array.Empty<PathBuilderOp>();
+        }
+
+        private CanvasGeometry(SKPath path, IReadOnlyList<PathBuilderOp> ops)
+        {
+            _path = path;
+            _ops = ops;
         }
 
         // ── Factory methods ────────────────────────────────────────────
@@ -161,7 +169,7 @@ namespace Microsoft.Graphics.Canvas.Geometry
 
         public static CanvasGeometry CreatePath(CanvasPathBuilder pathBuilder)
         {
-            return new CanvasGeometry(pathBuilder.GetPath());
+            return new CanvasGeometry(pathBuilder.GetPath(), pathBuilder.GetOps());
         }
 
         // ── CreateText (existing) ──────────────────────────────────────
@@ -364,7 +372,7 @@ namespace Microsoft.Graphics.Canvas.Geometry
             using var font = new SKFont(fontFace.Typeface, fontSize);
             font.GetGlyphPaths(glyphIndices, (contourPath, matrix) =>
             {
-                path.AddPath(contourPath, ref matrix);
+                path.AddPath(contourPath, in matrix);
             });
             path.Offset(point.X, point.Y);
             return new CanvasGeometry(path);
@@ -372,6 +380,19 @@ namespace Microsoft.Graphics.Canvas.Geometry
 
         public void SendPathTo(ICanvasPathReceiver receiver)
         {
+            foreach (var op in _ops)
+            {
+                switch (op.Type)
+                {
+                    case PathBuilderOpType.SetFilledRegionDetermination:
+                        receiver.SetFilledRegionDetermination(op.FilledRegionDetermination);
+                        break;
+                    case PathBuilderOpType.SetSegmentOptions:
+                        receiver.SetSegmentOptions(op.SegmentOptions);
+                        break;
+                }
+            }
+
             using var iter = _path.CreateRawIterator();
             SKPoint[] points = new SKPoint[4];
             while (true)
@@ -398,6 +419,11 @@ namespace Microsoft.Graphics.Canvas.Geometry
                         receiver.EndFigure(CanvasFigureLoop.Closed);
                         break;
                     case SKPathVerb.Done:
+                        foreach (var arcOp in _ops)
+                        {
+                            if (arcOp.Type == PathBuilderOpType.AddArc)
+                                receiver.AddArc(arcOp.ArcEndPoint, arcOp.ArcRadiusX, arcOp.ArcRadiusY, arcOp.ArcRotationAngle, arcOp.ArcSweepDirection, arcOp.ArcSize);
+                        }
                         return;
                 }
             }

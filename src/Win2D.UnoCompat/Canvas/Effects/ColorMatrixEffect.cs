@@ -1,9 +1,11 @@
 using SkiaSharp;
+using Windows.Graphics.Effects;
 
 namespace Microsoft.Graphics.Canvas.Effects
 {
-    public sealed class ColorMatrixEffect : CanvasEffect
+    public sealed class ColorMatrixEffect : CanvasEffect, IGraphicsEffect
     {
+        public string Name { get; set; } = string.Empty;
         public float[] ColorMatrix { get; set; } =
         [
             1, 0, 0, 0, 0,
@@ -12,11 +14,19 @@ namespace Microsoft.Graphics.Canvas.Effects
             0, 0, 0, 1, 0,
         ];
 
-        public CanvasAlphaMode AlphaMode { get; set; } = CanvasAlphaMode.Premultiplied;
+        private CanvasAlphaMode _alphaMode = CanvasAlphaMode.Premultiplied;
+        public CanvasAlphaMode AlphaMode
+        {
+            get => _alphaMode;
+            set
+            {
+                if (value == CanvasAlphaMode.Ignore)
+                    throw new ArgumentException("AlphaMode.Ignore is not supported.");
+                _alphaMode = value;
+            }
+        }
 
         public bool ClampOutput { get; set; }
-
-        public new ICanvasImage? Source { get; set; }
 
         internal override SKImage GetImage()
         {

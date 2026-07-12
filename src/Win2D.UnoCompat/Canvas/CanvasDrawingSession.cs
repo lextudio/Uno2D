@@ -3,6 +3,7 @@ using System;
 using System.Numerics;
 using Windows.Foundation;
 using Windows.UI;
+using Windows.Graphics.Effects;
 using Microsoft.Graphics.Canvas.Brushes;
 using Microsoft.Graphics.Canvas.Effects;
 using Microsoft.Graphics.Canvas.Geometry;
@@ -23,10 +24,11 @@ namespace Microsoft.Graphics.Canvas
         private CanvasUnits _units = CanvasUnits.Dips;
         private bool _disposed;
 
-        public CanvasDrawingSession(SKCanvas canvas, CanvasDevice? device = null)
+        public CanvasDrawingSession(SKCanvas canvas, CanvasDevice? device = null, float dpi = 96f)
         {
             _canvas = canvas;
             _device = device;
+            Dpi = dpi;
         }
 
         // ── State properties ──────────────────────────────────────────
@@ -366,6 +368,25 @@ namespace Microsoft.Graphics.Canvas
             using var paint = CreateImagePaint();
             paint.ColorFilter = SKColorFilter.CreateBlendMode(ToSkColor(tint), SKBlendMode.Modulate);
             _canvas.DrawBitmap(bitmap.Bitmap, ToSkRect(sourceRect), ToSkRect(destinationRect), paint);
+        }
+
+        public void DrawImage(ICanvasImage image)
+        {
+            DrawImage(image, new Rect(0, 0, 0, 0));
+        }
+
+        public void DrawImage(ICanvasImage image, Rect destinationRect)
+        {
+            if (image is IGraphicsEffectSource effectSource)
+            {
+                var sourceDevice = CanvasEffect.GetDevice(effectSource);
+                if (sourceDevice is not null && sourceDevice != _device)
+                    throw new ArgumentException("Effect source #0 is associated with a different device.");
+            }
+
+            var imageRect = new SKRect((float)destinationRect.X, (float)destinationRect.Y, (float)(destinationRect.X + destinationRect.Width), (float)(destinationRect.Y + destinationRect.Height));
+            var skImage = CanvasEffect.ResolveImage(image);
+            _canvas.DrawImage(skImage, imageRect);
         }
 
         public void DrawImage(CanvasEffect effect, Rect destinationRect)

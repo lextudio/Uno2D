@@ -1,9 +1,11 @@
 using SkiaSharp;
 using Windows.Foundation;
+using Windows.Graphics.Effects;
+using Microsoft.Graphics.Canvas.Effects;
 
 namespace Microsoft.Graphics.Canvas
 {
-    public sealed class CanvasCommandList : IDisposable
+    public sealed class CanvasCommandList : IDisposable, ICanvasImage, IGraphicsEffectSource
     {
         private readonly SKSurface _surface;
         private bool _disposed;
@@ -48,6 +50,13 @@ namespace Microsoft.Graphics.Canvas
         public Rect GetBounds()
         {
             return new Rect(0, 0, Size.Width, Size.Height);
+        }
+
+        internal SKImage GetImage()
+        {
+            ThrowIfDisposed();
+            _surface.Canvas.Flush();
+            return _surface.Snapshot();
         }
 
         public void Dispose()

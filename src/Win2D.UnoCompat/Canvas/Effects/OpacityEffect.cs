@@ -6,8 +6,6 @@ namespace Microsoft.Graphics.Canvas.Effects
     {
         public float Opacity { get; set; } = 1f;
 
-        public new ICanvasImage? Source { get; set; }
-
         public static bool IsSupported => true;
 
         internal override SKImage GetImage()

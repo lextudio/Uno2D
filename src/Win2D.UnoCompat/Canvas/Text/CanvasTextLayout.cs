@@ -465,7 +465,7 @@ namespace Microsoft.Graphics.Canvas.Text
         public void DrawToTextRenderer(CanvasDrawingSession drawingSession, float x, float y)
         {
             ArgumentNullException.ThrowIfNull(drawingSession);
-            drawingSession.DrawTextLayout(this, x, y, Windows.UI.Color.FromArgb(255, 0, 0, 0));
+            drawingSession.DrawTextLayout(this, x, y, Color.FromArgb(255, 0, 0, 0));
         }
 
         public System.Numerics.Vector2 GetCaretPosition(int characterIndex, bool trailingSideOfCharacter)

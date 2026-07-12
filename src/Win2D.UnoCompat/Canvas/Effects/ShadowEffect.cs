@@ -14,8 +14,6 @@ namespace Microsoft.Graphics.Canvas.Effects
 
         public CanvasColor ShadowColorHdr { get; set; } = CanvasColor.FromArgb(1f, 0f, 0f, 0f);
 
-        public new ICanvasImage? Source { get; set; }
-
         public EffectOptimization Optimization { get; set; } = EffectOptimization.Balanced;
 
         internal override SKImage GetImage()

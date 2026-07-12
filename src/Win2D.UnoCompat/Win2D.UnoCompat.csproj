@@ -8,6 +8,7 @@
     <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);1591</NoWarn>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <Authors>LeXtudio</Authors>
     <Company>LeXtudio</Company>
     <Version>$(GitVersion_SemVer)</Version>

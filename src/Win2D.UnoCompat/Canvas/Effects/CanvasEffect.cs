@@ -1,23 +1,25 @@
 using SkiaSharp;
+using System.Collections.Generic;
 using System.Numerics;
 using Windows.Foundation;
 using Windows.UI;
+using Windows.Graphics.Effects;
 
 namespace Microsoft.Graphics.Canvas.Effects
 {
-    public interface ICanvasImage
+    public interface ICanvasImage : IGraphicsEffectSource
     {
     }
 
     public abstract class CanvasEffect : ICanvasImage, IDisposable
     {
-        public ICanvasImage? Source { get; set; }
+        public IGraphicsEffectSource? Source { get; set; }
 
         public CanvasBufferPrecision BufferPrecision { get; set; } = CanvasBufferPrecision.Precision8Bit;
 
         public bool CacheOutput { get; set; }
 
-        public string? Name { get; set; }
+        public string Name { get; set; } = string.Empty;
 
         internal abstract SKImage GetImage();
 
@@ -50,25 +52,58 @@ namespace Microsoft.Graphics.Canvas.Effects
         {
         }
 
-        internal static SKImage ResolveImage(ICanvasImage source)
+        internal static CanvasDevice? GetDevice(IGraphicsEffectSource? source)
+        {
+            return source switch
+            {
+                CanvasBitmap b => b.Device,
+                CanvasRenderTarget r => r.Device,
+                CanvasCommandList c => c.Device,
+                CanvasEffect e => GetDevice(e.Source),
+                _ => null,
+            };
+        }
+
+        internal static SKImage ResolveImage(IGraphicsEffectSource source)
         {
             return source switch
             {
                 CanvasBitmap bitmap => SKImage.FromBitmap(bitmap.Bitmap),
+                CanvasRenderTarget rt => rt.GetImage(),
+                CanvasCommandList cl => cl.GetImage(),
                 CanvasEffect effect => effect.GetImage(),
-                _ => throw new ArgumentException("Unsupported canvas image source.", nameof(source)),
+                _ => throw new InvalidCastException("Effect source #0 is an unsupported type. To draw an effect using Win2D, all its sources must be Win2D ICanvasImage objects."),
             };
         }
 
-        internal static SKImage RequireSourceImage(ICanvasImage? source)
+        internal static SKImage RequireSourceImage(IGraphicsEffectSource? source)
         {
-            if (source is null)
-                throw new InvalidOperationException("Effect source must be set before rendering.");
-
-            return ResolveImage(source);
+            ValidateSourceTree(source, 0);
+            return ResolveImage(source!);
         }
 
-        internal static SKImage ApplyPaintFilter(ICanvasImage? source, SKPaint paint)
+        private static readonly HashSet<Type> SelfContainedEffects = new()
+        {
+            typeof(ColorSourceEffect),
+        };
+
+        private static void ValidateSourceTree(IGraphicsEffectSource? source, int depth)
+        {
+            if (source is null)
+                throw new ArgumentException("Effect source #0 is null.");
+
+            if (source is CanvasEffect effect)
+            {
+                if (!SelfContainedEffects.Contains(effect.GetType()))
+                    ValidateSourceTree(effect.Source, depth + 1);
+                return;
+            }
+
+            if (source is not CanvasBitmap and not CanvasRenderTarget and not CanvasCommandList)
+                throw new InvalidCastException("Effect source #0 is an unsupported type. To draw an effect using Win2D, all its sources must be Win2D ICanvasImage objects.");
+        }
+
+        internal static SKImage ApplyPaintFilter(IGraphicsEffectSource? source, SKPaint paint)
         {
             using SKImage input = RequireSourceImage(source);
             var info = new SKImageInfo(input.Width, input.Height, SKColorType.Bgra8888, SKAlphaType.Premul);

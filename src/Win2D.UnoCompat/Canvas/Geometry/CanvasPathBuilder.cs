@@ -1,12 +1,32 @@
 using SkiaSharp;
 using System;
+using System.Collections.Generic;
 using System.Numerics;
 
 namespace Microsoft.Graphics.Canvas.Geometry
 {
+    internal enum PathBuilderOpType
+    {
+        SetFilledRegionDetermination,
+        SetSegmentOptions,
+        AddArc,
+    }
+
+    internal readonly record struct PathBuilderOp(
+        PathBuilderOpType Type,
+        CanvasFilledRegionDetermination FilledRegionDetermination,
+        CanvasFigureSegmentOptions SegmentOptions,
+        Vector2 ArcEndPoint,
+        float ArcRadiusX,
+        float ArcRadiusY,
+        float ArcRotationAngle,
+        CanvasSweepDirection ArcSweepDirection,
+        CanvasArcSize ArcSize);
+
     public sealed class CanvasPathBuilder
     {
         private readonly SKPath _path;
+        private readonly List<PathBuilderOp> _ops = new();
         private CanvasFilledRegionDetermination _fillDetermination = CanvasFilledRegionDetermination.Alternate;
         private CanvasFigureSegmentOptions _segmentOptions = CanvasFigureSegmentOptions.None;
 
@@ -35,6 +55,11 @@ namespace Microsoft.Graphics.Canvas.Geometry
             _path.LineTo(point.X, point.Y);
         }
 
+        public void AddCubicBezier(Vector2 controlPoint1, Vector2 controlPoint2, Vector2 endPoint)
+        {
+            _path.CubicTo(controlPoint1.X, controlPoint1.Y, controlPoint2.X, controlPoint2.Y, endPoint.X, endPoint.Y);
+        }
+
         public void AddBezier(Vector2 controlPoint1, Vector2 controlPoint2, Vector2 endPoint)
         {
             _path.CubicTo(controlPoint1.X, controlPoint1.Y, controlPoint2.X, controlPoint2.Y, endPoint.X, endPoint.Y);
@@ -57,6 +82,8 @@ namespace Microsoft.Graphics.Canvas.Geometry
 
         public void AddArc(Vector2 endPoint, float radiusX, float radiusY, float rotationAngle, CanvasSweepDirection sweepDirection, CanvasArcSize arcSize)
         {
+            _ops.Add(new PathBuilderOp(PathBuilderOpType.AddArc, default, default,
+                endPoint, radiusX, radiusY, rotationAngle, sweepDirection, arcSize));
             var dir = sweepDirection == CanvasSweepDirection.Clockwise
                 ? SKPathDirection.Clockwise
                 : SKPathDirection.CounterClockwise;
@@ -79,6 +106,7 @@ namespace Microsoft.Graphics.Canvas.Geometry
 
         public void SetFilledRegionDetermination(CanvasFilledRegionDetermination value)
         {
+            _ops.Add(new PathBuilderOp(PathBuilderOpType.SetFilledRegionDetermination, value, default, default, 0, 0, 0, default, default));
             _fillDetermination = value;
             _path.FillType = value == CanvasFilledRegionDetermination.Winding
                 ? SKPathFillType.Winding
@@ -87,6 +115,7 @@ namespace Microsoft.Graphics.Canvas.Geometry
 
         public void SetSegmentOptions(CanvasFigureSegmentOptions options)
         {
+            _ops.Add(new PathBuilderOp(PathBuilderOpType.SetSegmentOptions, default, options, default, 0, 0, 0, default, default));
             _segmentOptions = options;
         }
 
@@ -98,5 +127,7 @@ namespace Microsoft.Graphics.Canvas.Geometry
                 : SKPathFillType.EvenOdd;
             return _path;
         }
+
+        internal IReadOnlyList<PathBuilderOp> GetOps() => _ops;
     }
 }

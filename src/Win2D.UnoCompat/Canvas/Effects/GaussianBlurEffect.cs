@@ -10,8 +10,6 @@ namespace Microsoft.Graphics.Canvas.Effects
 
         public EffectOptimization Optimization { get; set; } = EffectOptimization.Balanced;
 
-        public new ICanvasImage? Source { get; set; }
-
         internal override SKImage GetImage()
         {
             using var paint = new SKPaint
