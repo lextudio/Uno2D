@@ -1,4 +1,5 @@
 using SkiaSharp;
+using System.Numerics;
 using Windows.Foundation;
 using Windows.Graphics.Effects;
 using Microsoft.Graphics.Canvas.Effects;
@@ -26,6 +27,17 @@ namespace Microsoft.Graphics.Canvas
             _surface.Canvas.Clear(SKColors.Transparent);
         }
 
+        public CanvasCommandList(ICanvasResourceCreator resourceCreator)
+            : this(GetDevice(resourceCreator))
+        {
+        }
+
+        private static CanvasDevice GetDevice(ICanvasResourceCreator resourceCreator)
+        {
+            ArgumentNullException.ThrowIfNull(resourceCreator);
+            return resourceCreator.Device;
+        }
+
         public Size Size { get; }
 
         public float Dpi { get; }
@@ -50,6 +62,22 @@ namespace Microsoft.Graphics.Canvas
         public Rect GetBounds()
         {
             return new Rect(0, 0, Size.Width, Size.Height);
+        }
+
+        public Rect GetBounds(ICanvasResourceCreator resourceCreator)
+        {
+            ArgumentNullException.ThrowIfNull(resourceCreator);
+            return GetBounds();
+        }
+
+        public Rect GetBounds(ICanvasResourceCreator resourceCreator, Matrix3x2 transform)
+        {
+            ArgumentNullException.ThrowIfNull(resourceCreator);
+            Rect bounds = GetBounds();
+            SKRect skBounds = new((float)bounds.X, (float)bounds.Y, (float)(bounds.X + bounds.Width), (float)(bounds.Y + bounds.Height));
+            SKMatrix matrix = new(transform.M11, transform.M21, transform.M31, transform.M12, transform.M22, transform.M32, 0, 0, 1);
+            SKRect mapped = matrix.MapRect(skBounds);
+            return new Rect(mapped.Left, mapped.Top, mapped.Width, mapped.Height);
         }
 
         internal SKImage GetImage()

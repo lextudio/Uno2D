@@ -15,7 +15,36 @@ namespace Microsoft.Graphics.Canvas
             EffectChannelSelect channelSelect,
             int numberOfBins)
         {
-            return new float[numberOfBins];
+            var device = resourceCreator switch
+            {
+                CanvasDevice d => d,
+                ICanvasResourceCreator c => c.Device,
+                _ => CanvasDevice.GetSharedDevice(),
+            };
+            using var skImage = RenderImage(image, sourceRectangle, 96, device);
+            using var skBitmap = new SKBitmap(skImage.Width, skImage.Height);
+            skImage.ReadPixels(skBitmap.Info, skBitmap.GetPixels(), skBitmap.RowBytes, 0, 0);
+            var histogram = new float[numberOfBins];
+            int totalPixels = skBitmap.Width * skBitmap.Height;
+            for (int y = 0; y < skBitmap.Height; y++)
+            {
+                for (int x = 0; x < skBitmap.Width; x++)
+                {
+                    SKColor color = skBitmap.GetPixel(x, y);
+                    float value = channelSelect switch
+                    {
+                        EffectChannelSelect.Red => color.Red / 255f,
+                        EffectChannelSelect.Green => color.Green / 255f,
+                        EffectChannelSelect.Blue => color.Blue / 255f,
+                        EffectChannelSelect.Alpha => color.Alpha / 255f,
+                        _ => color.Red / 255f,
+                    };
+                    int bin = (int)(value * numberOfBins);
+                    if (bin >= numberOfBins) bin = numberOfBins - 1;
+                    histogram[bin] += 1f / totalPixels;
+                }
+            }
+            return histogram;
         }
 
         public static async Task SaveAsync(ICanvasImage image, IRandomAccessStream stream, CanvasBitmapFileFormat fileFormat)
@@ -31,15 +60,22 @@ namespace Microsoft.Graphics.Canvas
         public static async Task SaveAsync(ICanvasImage image, Rect imageRectangle, float dpi, CanvasDevice device, IRandomAccessStream stream, CanvasBitmapFileFormat fileFormat, float quality, CanvasBufferPrecision bufferPrecision)
         {
             using var skImage = RenderImage(image, imageRectangle, dpi, device);
-            using var data = skImage.Encode(ToSkFormat(fileFormat), (int)(quality * 100));
+            var skFormat = ToSkFormat(fileFormat);
+            int skQuality = fileFormat == CanvasBitmapFileFormat.Jpeg || fileFormat == CanvasBitmapFileFormat.JpegXR
+                ? (int)(quality * 100)
+                : 100;
+            using var data = skImage.Encode(skFormat, skQuality) ?? skImage.Encode(SKEncodedImageFormat.Png, 100);
             if (data is null)
                 throw new InvalidOperationException("Failed to encode image.");
 
-            var dotnetStream = stream.AsStreamForWrite();
-            dotnetStream.SetLength(0);
-            await data.AsStream().CopyToAsync(dotnetStream).ConfigureAwait(false);
-            await dotnetStream.FlushAsync().ConfigureAwait(false);
+            byte[] bytes = data.ToArray();
             stream.Seek(0);
+            var writerStream = stream.AsStreamForWrite();
+            writerStream.SetLength(0);
+            writerStream.Write(bytes, 0, bytes.Length);
+            writerStream.Flush();
+            stream.Seek(0);
+            System.GC.KeepAlive(writerStream);
         }
 
         private static SKImage RenderImage(ICanvasImage image, Rect imageRectangle, float dpi, CanvasDevice device)
@@ -74,14 +110,23 @@ namespace Microsoft.Graphics.Canvas
                 height = (int)imageRectangle.Height;
             }
 
-            var info = new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Premul);
+            var info = new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Unpremul);
             using var surface = SKSurface.Create(info);
             if (surface is null)
                 throw new InvalidOperationException("Unable to create temporary surface.");
 
             var canvas = surface.Canvas;
             var skImage = CanvasEffect.ResolveImage(image);
-            canvas.DrawImage(skImage, new SKRect(0, 0, width, height));
+            if (imageRectangle.IsEmpty || (imageRectangle.Width == 0 && imageRectangle.Height == 0))
+            {
+                canvas.DrawImage(skImage, new SKRect(0, 0, width, height));
+            }
+            else
+            {
+                var srcRect = new SKRect((float)imageRectangle.X, (float)imageRectangle.Y,
+                    (float)(imageRectangle.X + imageRectangle.Width), (float)(imageRectangle.Y + imageRectangle.Height));
+                canvas.DrawImage(skImage, srcRect, new SKRect(0, 0, width, height));
+            }
 
             return surface.Snapshot();
         }

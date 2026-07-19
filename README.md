@@ -6,14 +6,47 @@ It translates `Microsoft.Graphics.Canvas` drawing and text APIs into [SkiaSharp]
 
 Current scope:
 
-- Provide a lightweight `CanvasControl` for Uno Skia applications.
-- Support basic drawing sessions, strokes, shapes, geometry, and text layout.
-- Keep public namespaces close to Win2D so existing source code needs fewer changes.
-- Track parity explicitly and avoid pretending unsupported Win2D APIs are complete.
+- **124 public types** covering ~89% of the Win2D public API surface (~529 / ~600 members)
+- Full drawing session with shapes, geometry, text, layers, transforms, and blend modes
+- Bitmap load/save/create/copy with pixel-level access
+- Effects pipeline: blur, shadow, color matrix, composite, blend, crop, transform, color management, and custom PixelShaderEffect with HLSL compilation
+- Brushes: solid color, image, linear/radial gradient
+- Geometry: shape factories, combine, stroke, hit-testing, path builder
+- Text: format, layout, cluster metrics, font face
+- Controls: CanvasControl, CanvasAnimatedControl
+- Image sources: CanvasImageSource, CanvasVirtualImageSource
+- Sprite batching, printing, SVG, ink, typography
+- Keep public namespaces close to Win2D so existing source code needs fewer changes
+- Track parity explicitly and avoid pretending unsupported Win2D APIs are complete
 
-## Screenshot & Video
+## Compatibility
 
-TODO
+Win2D.UnoCompat includes a dedicated compatibility test suite that links Win2D's official C# test files and runs them against the Uno2D implementation.
+
+**Current status: 46 / 46 tests passing** across all major API areas:
+
+| Area | Tests | Status |
+|------|:-----:|:------:|
+| CanvasDevice | 3 | ✅ |
+| CanvasRenderTarget | 3 | ✅ |
+| CanvasBitmap (load/save/pixels) | 10 | ✅ |
+| CanvasDrawingSession (DrawImage) | 3 | ✅ |
+| Effects (blur, shadow, color matrix, composite, etc.) | 5 | ✅ |
+| PixelShaderEffect (HLSL compilation, properties, validation) | 15 | ✅ |
+| CanvasCommandList | 2 | ✅ |
+| CanvasImageSource | 1 | ✅ |
+| CanvasSpriteBatch | 1 | ✅ |
+| CanvasAnimatedControl | 1 | ✅ |
+| CanvasGeometry | 1 | ✅ |
+| CanvasPrintDocument | 1 | ✅ |
+
+## Code Coverage
+
+| Metric | Value |
+|--------|:-----:|
+| Sequence points | 83.0% |
+| Branch coverage | 56.3% |
+| Excluding auto-generated code | 85.9% |
 
 ## Supported Platforms
 
@@ -61,17 +94,23 @@ private void Canvas_Draw(CanvasControl sender, CanvasDrawEventArgs args)
 
 ## Current Status
 
-Early preview (v0.x.y) releases are available on NuGet.
+Stable preview (v0.x.y) releases are available on NuGet.
 
-This package is a compatibility shim, not a full Win2D reimplementation. It currently focuses on the subset needed by LeXtudio Uno tools and related samples.
+This package is a compatibility shim that covers **~89% of the Win2D public API surface** (~529 / ~600 public members across 124 types). The remaining gaps are in niche areas not yet needed by LeXtudio Uno tools.
 
 ## TODO Items Before v1.0.0
 
-- [ ] Expand drawing session parity
-- [ ] Improve text layout fidelity
-- [ ] Add more geometry operations
-- [ ] Complete parity reporting in package documentation
+- [x] Drawing session parity (shapes, geometry, text, layers, transform, blend)
+- [x] Bitmap load/save/create/copy with pixel-level access
+- [x] Effects pipeline (blur, shadow, color matrix, composite, crop, transform, color management, custom PixelShaderEffect)
+- [x] Brushes (solid, image, linear/radial gradient)
+- [x] Geometry operations (combine, stroke, hit-test, path builder)
+- [x] Controls (CanvasControl, CanvasAnimatedControl)
+- [x] Image sources (CanvasImageSource, CanvasVirtualImageSource)
+- [x] Sprite batching, printing, SVG, ink, typography
+- [x] Win2D official C# test suite: 46/46 passing
 - [ ] Add visual regression samples
+- [ ] Publish v1.0.0 stable release
 
 ## License
 

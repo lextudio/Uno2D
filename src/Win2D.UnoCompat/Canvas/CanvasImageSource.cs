@@ -18,6 +18,7 @@ namespace Microsoft.Graphics.Canvas
             if (height <= 0)
                 throw new ArgumentOutOfRangeException(nameof(height));
 
+            Device = device;
             Width = width;
             Height = height;
             Dpi = dpi;
@@ -26,9 +27,23 @@ namespace Microsoft.Graphics.Canvas
             _surface.Canvas.Clear(SKColors.Transparent);
         }
 
+        public CanvasImageSource(ICanvasResourceCreatorWithDpi resourceCreator, float width, float height)
+            : this(GetDevice(resourceCreator), width, height, resourceCreator.Dpi)
+        {
+        }
+
+        private static CanvasDevice GetDevice(ICanvasResourceCreatorWithDpi resourceCreator)
+        {
+            ArgumentNullException.ThrowIfNull(resourceCreator);
+            return resourceCreator.Device;
+        }
+
+        public CanvasDevice Device { get; }
         public float Width { get; }
         public float Height { get; }
         public float Dpi { get; }
+        public Size Size => new(Width, Height);
+        public Size SizeInPixels => new(Width * Dpi / 96f, Height * Dpi / 96f);
         public bool IsDirty => _isDirty;
         public object? ImageSource => null;
 
@@ -37,7 +52,7 @@ namespace Microsoft.Graphics.Canvas
             ThrowIfDisposed();
             _surface.Canvas.Clear(new SKColor(clearColor.R, clearColor.G, clearColor.B, clearColor.A));
             _isDirty = true;
-            return new CanvasDrawingSession(_surface.Canvas);
+            return new CanvasDrawingSession(_surface.Canvas, Device, Dpi);
         }
 
         public void Invalidate()

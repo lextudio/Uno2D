@@ -26,6 +26,10 @@ namespace NativeComponent
 
     internal sealed class MockDirect3DDevice : IDirect3DDevice
     {
+        public MockDirect3DDevice() { }
+        public MockDirect3DDevice(bool featureLevel93) { MaxSupportedFeatureLevel = featureLevel93 ? 0 : 1; }
+
+        public int MaxSupportedFeatureLevel { get; } = 1;
         public void Trim() { }
         public void Dispose() { }
     }
@@ -93,7 +97,11 @@ namespace NativeComponent
     public static class DeviceCreator
     {
         public static IDirect3DDevice CreateDevice() => new MockDirect3DDevice();
-        public static IDirect3DDevice CreateDevice(bool useFeatureLevel93) => new MockDirect3DDevice();
+        public static IDirect3DDevice CreateDevice(bool useFeatureLevel93)
+        {
+            CanvasDevice.NextDeviceFeatureLevel = useFeatureLevel93 ? 0 : 1;
+            return new MockDirect3DDevice(useFeatureLevel93);
+        }
     }
 
     public static class EffectAccessor
@@ -198,11 +206,9 @@ namespace NativeComponent
     {
         public static byte[] CompileShader(string hlsl, string profile)
         {
-            if (profile.StartsWith("vs_"))
-                return Array.Empty<byte>();
-            return new byte[] { 0, 0, 0, 0, 0, 0, 0, 0 };
+            return ShaderEncoder.EncodeShader(hlsl, profile);
         }
-        public static byte[] CompileShaderAndEmbedLinkingFunction(string hlsl) => new byte[] { 0, 0, 0, 0, 0, 0, 0, 0, 1 };
+        public static byte[] CompileShaderAndEmbedLinkingFunction(string hlsl) => ShaderEncoder.EncodeCoordinateMapping(8);
     }
 
     public static class ReflectionHelper

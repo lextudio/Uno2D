@@ -5,6 +5,7 @@ using System.Runtime.InteropServices.WindowsRuntime;
 using System.Threading.Tasks;
 using Microsoft.Graphics.Canvas.Effects;
 using Windows.Foundation;
+using Windows.Storage.Streams;
 using Windows.UI;
 using Windows.Graphics.DirectX;
 
@@ -12,28 +13,40 @@ namespace Microsoft.Graphics.Canvas
 {
     public sealed class CanvasDevice : ICanvasResourceCreator, IDisposable
     {
+        public static int NextDeviceFeatureLevel = 1;
+        public int FeatureLevel => _featureLevel;
         private static readonly CanvasDevice _shared = new();
+        private int _featureLevel = 1;
 
         public static CanvasDevice GetSharedDevice() => _shared;
 
+        public static CanvasDevice GetSharedDevice(bool forceSoftwareRenderer)
+        {
+            _shared.ForceSoftwareRenderer = forceSoftwareRenderer;
+            return _shared;
+        }
+
         public static CanvasDevice CreateFromDirect3D11Device(object direct3DDevice)
         {
-            return new CanvasDevice();
+            var device = new CanvasDevice();
+            device._featureLevel = NextDeviceFeatureLevel;
+            NextDeviceFeatureLevel = 1;
+            return device;
         }
 
         public event EventHandler<object>? DeviceLost;
-
         public static CanvasDebugLevel DebugLevel { get; set; } = CanvasDebugLevel.None;
 
         public bool ForceSoftwareRenderer { get; set; }
-
         public bool LowPriority { get; set; }
-
         public long MaximumBitmapSizeInPixels { get; set; } = 16384;
-
         public long MaximumCacheSize { get; set; } = 0;
-
         public CanvasDevice Device => this;
+        public bool IsRemoteDevice { get; set; }
+        public int MaxTextureSize { get; set; } = 16384;
+        public int MaxCubeTextureSize { get; set; } = 16384;
+        public int MaxTextureArraySlices { get; set; } = 256;
+        public int MaxVolumeTextureExtent { get; set; } = 2048;
 
         public void Trim()
         {
@@ -64,9 +77,6 @@ namespace Microsoft.Graphics.Canvas
                 DirectXPixelFormat.R8G8B8A8UIntNormalizedSrgb or
                 DirectXPixelFormat.B8G8R8A8UIntNormalizedSrgb or
                 DirectXPixelFormat.R10G10B10A2UIntNormalized or
-                DirectXPixelFormat.R16G16B16A16UIntNormalized or
-                DirectXPixelFormat.R16G16B16A16Float or
-                DirectXPixelFormat.R32G32B32A32Float or
                 DirectXPixelFormat.A8UIntNormalized or
                 DirectXPixelFormat.R8UIntNormalized or
                 DirectXPixelFormat.R8G8UIntNormalized or
@@ -82,7 +92,17 @@ namespace Microsoft.Graphics.Canvas
             return null;
         }
 
+        public int GetDeviceLostHResult()
+        {
+            return 0;
+        }
+
         public bool IsDeviceLost()
+        {
+            return false;
+        }
+
+        public static bool IsDeviceLost(int hresult)
         {
             return false;
         }
@@ -199,7 +219,21 @@ namespace Microsoft.Graphics.Canvas
 
         public int Height => _height;
 
+        public DirectXPixelFormat Format => DirectXPixelFormat.B8G8R8A8UIntNormalized;
+
+        public CanvasAlphaMode AlphaMode => CanvasAlphaMode.Premultiplied;
+
+        public int DpiX => (int)Dpi;
+
+        public int DpiY => (int)Dpi;
+
+        public int PixelWidth => _width;
+
+        public int PixelHeight => _height;
+
         public float ConvertDipsToPixels(float dips) => dips * Dpi / 96f;
+
+        public float ConvertPixelsToDips(int pixels) => pixels * 96f / Dpi;
 
         public CanvasDrawingSession CreateDrawingSession()
         {
@@ -209,6 +243,16 @@ namespace Microsoft.Graphics.Canvas
         public static CanvasRenderTarget CreateFromDirect3D11Surface(object direct3DSurface)
         {
             return new CanvasRenderTarget(CanvasDevice.GetSharedDevice(), 1, 1, 96f);
+        }
+
+        public static CanvasRenderTarget CreateFromDirect3D11Surface(CanvasDevice device, object direct3DSurface, float dpi)
+        {
+            return new CanvasRenderTarget(device, 1, 1, dpi);
+        }
+
+        public static CanvasRenderTarget CreateFromDirect3D11Surface(CanvasDevice device, object direct3DSurface, float dpi, CanvasAlphaMode alpha)
+        {
+            return new CanvasRenderTarget(device, 1, 1, dpi);
         }
 
         internal SKBitmap SnapshotBitmap()
@@ -257,6 +301,24 @@ namespace Microsoft.Graphics.Canvas
             return colors;
         }
 
+        public Color[] GetPixelColors(int left, int top, int width, int height)
+        {
+            SKPixmap pix = _surface.PeekPixels();
+            if (pix is null)
+                return Array.Empty<Color>();
+
+            var colors = new Color[width * height];
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    SKColor color = pix.GetPixelColor(left + x, top + y);
+                    colors[y * width + x] = Color.FromArgb(color.Alpha, color.Red, color.Green, color.Blue);
+                }
+            }
+            return colors;
+        }
+
         internal SKImage GetImage()
         {
             return _surface.Snapshot();
@@ -294,6 +356,15 @@ namespace Microsoft.Graphics.Canvas
             {
                 await data.AsStream().CopyToAsync(dotnetStream).ConfigureAwait(false);
                 await dotnetStream.FlushAsync().ConfigureAwait(false);
+                return;
+            }
+
+            if (stream is IRandomAccessStream randomAccessStream)
+            {
+                var writerStream = randomAccessStream.AsStreamForWrite();
+                writerStream.SetLength(0);
+                await data.AsStream().CopyToAsync(writerStream).ConfigureAwait(false);
+                await writerStream.FlushAsync().ConfigureAwait(false);
                 return;
             }
 

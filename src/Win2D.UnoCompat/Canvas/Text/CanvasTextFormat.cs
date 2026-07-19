@@ -11,7 +11,7 @@ namespace Microsoft.Graphics.Canvas.Text
         // ── Core properties (existing) ─────────────────────────────────
 
         public string? FontFamily { get; set; }
-        public float FontSize { get; set; }
+        public float FontSize { get; set; } = 20f;
         public CanvasHorizontalAlignment HorizontalAlignment { get; set; }
         public CanvasVerticalAlignment VerticalAlignment { get; set; }
         public CanvasWordWrapping WordWrapping { get; set; }

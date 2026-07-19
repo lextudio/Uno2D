@@ -47,6 +47,25 @@ public sealed class CanvasCommandListTests
         first.GetPixelBytes().Should().Equal(second.GetPixelBytes());
     }
 
+    [Fact]
+    public void GetBounds_WithResourceCreator_ReturnsSize()
+    {
+        CanvasDevice device = CanvasDevice.GetSharedDevice();
+        using var commandList = new CanvasCommandList(device, 4, 6);
+
+        commandList.GetBounds(device).Should().Be(new Windows.Foundation.Rect(0, 0, 4, 6));
+    }
+
+    [Fact]
+    public void GetBounds_WithTransform_AppliesTranslation()
+    {
+        CanvasDevice device = CanvasDevice.GetSharedDevice();
+        using var commandList = new CanvasCommandList(device, 4, 4);
+
+        var transform = System.Numerics.Matrix3x2.CreateTranslation(2, 3);
+        commandList.GetBounds(device, transform).Should().Be(new Windows.Foundation.Rect(2, 3, 4, 4));
+    }
+
     private static (byte R, byte G, byte B, byte A) PixelAt(byte[] pixels, int width, int x, int y)
     {
         int offset = ((y * width) + x) * 4;

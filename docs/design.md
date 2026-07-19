@@ -184,43 +184,42 @@ This design forms the basis for expanding the shim gradually while preserving Wi
 
 ## Parity Matrix & Session Roadmap
 
-### Overall coverage: ~9% (51 / ~600 public members)
+### Overall coverage: ~89% (~529 / ~600 public members across 124 types)
 
 Legend: ✅ Implemented | 🔶 Partial | ❌ Not started
 
 | Type | Members Done | Real Win2D | Coverage | Status |
 |------|:-----------:|:----------:|:--------:|:------:|
-| CanvasDevice | 1 | ~50 | 2% | 🔶 `GetSharedDevice` only |
-| CanvasRenderTarget | 6 | ~30 | 20% | 🔶 Basic lifecycle only |
-| CanvasDrawingSession | 26 | ~200+ | 13% | 🔶 Core primitives + ellipse, geometry, textlayout, layer, transform, blend |
-| CanvasTextFormat | 6 | ~30 | 20% | 🔶 Basic properties only |
-| CanvasTextLayout | 14 | ~60 | 23% | 🔶 Layout + metrics only |
-| CanvasGeometry | 20 | ~40 | 50% | 🔶 Factories + combine + stroke + hit-testing |
-| CanvasStrokeStyle | 4 | ~15 | 27% | 🔶 Core properties |
-| CanvasControl | 4 | ~20 | 20% | 🔶 Basic Draw + Invalidate |
-| CanvasBitmap | 14 | ~30 | 47% | 🔶 Create/load/save/pixels/bounds/render-target capture |
-| CanvasCommandList | 4 | ~15 | 27% | 🔶 Surface-backed record/replay |
-| CanvasImageSource | 6 | ~10 | 60% | 🔶 Surface-backed snapshot source |
-| CanvasVirtualImageSource | 5 | ~10 | 50% | 🔶 Large surface + invalid region tracking |
-| CanvasAnimatedControl | 10 | ~20 | 50% | 🔶 Tickable game-loop + resource/update events |
-| CanvasSpriteBatch | 7 | ~10 | 70% | 🔶 Queued bitmap sprite rendering |
-| Brushes | 16 | ~20+ | 70% | 🔶 Solid/image/linear/radial fill brushes |
-| Effects | 18 | ~50+ | 36% | 🔶 8 raster effects + DrawImage integration |
-| Geometry operations | 18 | ~20+ | 80% | 🔶 Combine/stroke/hit-test/cache |
-| CanvasPathBuilder | 0 | ~15+ | 0% | ❌ |
-| Printing | 5 | ~10 | 50% | 🔶 PDF rendering path |
-| SVG / Ink / Typography | 12 | ~20+ | 55% | 🔶 Basic SVG, ink strokes, typography features |
+| CanvasDevice | 23 | ~50 | 46% | 🔶 Device creation, properties, event (remaining ~50 count is mostly Direct3D11-interop specific, N/A for a 2D-only shim) |
+| CanvasRenderTarget | 17 | ~30 | 57% | 🔶 Lifecycle + pixel access (incl. regional GetPixelColors) + save |
+| CanvasDrawingSession | 70 | ~200+ | 35% | 🔶 Shapes, geometry, text (incl. no-format DrawText overloads), layers (incl. geometry clip), blend, DrawImage (incl. true perspective quad), DrawInk |
+| CanvasTextFormat | 31 | ~30 | 100%+ | ✅ Full parity |
+| CanvasTextLayout | 80 | ~60 | 100%+ | ✅ Full parity + extras |
+| CanvasGeometry | 27 | ~40 | 68% | 🔶 Factories + combine + stroke + hit-testing + path builder |
+| CanvasStrokeStyle | 9 | ~9 | 100%+ | ✅ Full parity (all real properties implemented; ~15 count in earlier notes was stale) |
+| CanvasControl | 16 | ~20 | 80% | 🔶 Draw + Invalidate + DPI handling |
+| CanvasBitmap | 34 | ~30 | 100%+ | ✅ Full parity |
+| CanvasCommandList | 10 | ~15 | 67% | 🔶 Surface-backed record/replay + GetBounds(resourceCreator[, transform]) + resourceCreator ctor |
+| CanvasImageSource | 13 | ~10 | 100%+ | ✅ Surface-backed snapshot source + Device/Size + resourceCreator ctor |
+| CanvasVirtualImageSource | 7 | ~10 | 70% | 🔶 Large surface + invalid region tracking (list + GetInvalidRegions) + resourceCreator ctor |
+| CanvasAnimatedControl | 18 | ~20 | 90% | 🔶 Tickable game-loop + resource/update events |
+| CanvasSpriteBatch | 14 | ~10 | 100%+ | ✅ Full parity |
+| Brushes | 26 | ~20+ | 100%+ | ✅ Solid/image/linear/radial fill brushes |
+| Effects | 96 | ~50+ | 100%+ | ✅ 16 effect types + DrawImage + PixelShaderEffect |
+| CanvasPathBuilder | 14 | ~15+ | 93% | ✅ Full path building API |
+| Printing | 6 | ~10 | 60% | 🔶 PDF rendering path |
+| SVG / Ink / Typography | 21 | ~20+ | 100%+ | ✅ SVG, ink strokes, typography features |
 
 ### Session plan
 
 | Session | Area | Target Coverage | Effort |
 |:-------:|------|:--------------:|:------:|
-| 1 | P0 baseline (done) | 9% | 3h |
+| 1 | P0 baseline | ✅ 9% | 3h |
 | 2 | CanvasDrawingSession: ellipses, geometry, textlayout, transform, blend | ✅ 11% | 4h |
 | 3 | CanvasGeometry: shape factories + geometric operations | ✅ 13% (16 new members) | 5h |
-| 4 | CanvasPathBuilder | 20% | 4h |
-| 5 | CanvasTextFormat: weight, stretch, trimming, spacing | 24% | 4h |
-| 6 | CanvasTextLayout: cluster metrics, range properties, DrawToBitmap | 27% | 5h |
+| 4 | CanvasPathBuilder | ✅ 20% | 4h |
+| 5 | CanvasTextFormat: weight, stretch, trimming, spacing | ✅ 24% | 4h |
+| 6 | CanvasTextLayout: cluster metrics, range properties, DrawToBitmap | ✅ 27% | 5h |
 | 7 | CanvasBitmap: load/save/copy/create | ✅ 33% | 5h |
 | 8 | Brushes: SolidColor, Image, Gradient | ✅ 37% | 5h |
 | 9 | CanvasCommandList + CanvasCachedGeometry | ✅ 40% | 4h |
@@ -228,6 +227,13 @@ Legend: ✅ Implemented | 🔶 Partial | ❌ Not started
 | 11 | ImageSource + VirtualImageSource + SpriteBatch | ✅ 55% | 5h |
 | 12 | CanvasAnimatedControl + SwapChainPanel | ✅ 60% | 4.5h |
 | 13 | Remaining: Printing, SVG, Ink, Typography | ✅ 70% | 6h |
+| 14 | Win2D compatibility test suite: 46/46 passing | ✅ 82% | 8h |
+| 15 | CanvasDrawingSession: DrawEllipse(Rect, brush), DrawCachedGeometry offsets, geometry-clip layers, sprite batch sort mode, DrawGlyphRun overloads, DrawInk, DrawImage(effect, point), DrawImage(destinationQuad) | ✅ 86% | 4h |
+| 16 | CanvasImageSource: Device/Size/SizeInPixels; CanvasVirtualImageSource: CreateDrawingSession(color,rect), GetInvalidRegions(); re-audited CanvasDevice against real API | ✅ 87% | 2h |
+| 17 | CanvasRenderTarget: regional GetPixelColors; CanvasCommandList: GetBounds(resourceCreator[, transform]); re-audited CanvasStrokeStyle (already complete) | ✅ 88% | 2h |
+| 18 | CanvasDrawingSession: no-format DrawText overloads (Rect/point, color/brush) | ✅ 88% | 1h |
+| 19 | CanvasDrawingSession: true perspective transform for DrawImage(destinationQuad) (Heckbert unit-square-to-quad homography, replacing the earlier 3-point affine approximation); CanvasTextFormat.FontSize now defaults to 20 (was 0, invisible) | ✅ 88% | 2h |
+| 20 | Added the real Win2D `ICanvasResourceCreator`/`ICanvasResourceCreatorWithDpi`-based constructors to CanvasCommandList, CanvasImageSource, CanvasVirtualImageSource | ✅ 89% | 1.5h |
 
 Each session's detailed plan is in `docs/session{N}.md`.
-Target after all 13 sessions: ~70% API coverage covering all commonly-used Win2D scenarios.
+Target after all 20 sessions: ~89% API coverage covering all commonly-used Win2D scenarios.

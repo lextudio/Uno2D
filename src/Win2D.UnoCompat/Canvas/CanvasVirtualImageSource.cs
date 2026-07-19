@@ -16,6 +16,17 @@ namespace Microsoft.Graphics.Canvas
             TileSize = tileSize;
         }
 
+        public CanvasVirtualImageSource(ICanvasResourceCreatorWithDpi resourceCreator, float width, float height, int tileSize = 512)
+            : this(GetDevice(resourceCreator), width, height, resourceCreator.Dpi, tileSize)
+        {
+        }
+
+        private static CanvasDevice GetDevice(ICanvasResourceCreatorWithDpi resourceCreator)
+        {
+            ArgumentNullException.ThrowIfNull(resourceCreator);
+            return resourceCreator.Device;
+        }
+
         public int TileSize { get; }
 
         public IReadOnlyList<Rect> InvalidRegions => _invalidRegions;
@@ -26,10 +37,18 @@ namespace Microsoft.Graphics.Canvas
             return CreateDrawingSession(Color.FromArgb(0, 0, 0, 0));
         }
 
+        public CanvasDrawingSession CreateDrawingSession(Color clearColor, Rect updateRectangle)
+        {
+            _invalidRegions.Add(updateRectangle);
+            return CreateDrawingSession(clearColor);
+        }
+
         public void Invalidate(Rect region)
         {
             _invalidRegions.Add(region);
             Invalidate();
         }
+
+        public IReadOnlyList<Rect> GetInvalidRegions() => _invalidRegions.ToArray();
     }
 }

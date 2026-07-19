@@ -27,6 +27,8 @@ namespace Microsoft.Graphics.Canvas
 
         public int MaximumSpritesPerBatch { get; set; } = 2048;
 
+        public CanvasSpriteSortMode SortMode { get; set; } = CanvasSpriteSortMode.None;
+
         public bool IsFailed { get; private set; }
 
         public int Count => _sprites.Count;

@@ -33,7 +33,36 @@ public sealed class CanvasImageSourceAndSpriteBatchTests
 
         source.TileSize.Should().Be(256);
         source.InvalidRegions.Should().ContainSingle().Which.Should().Be(region);
+        source.GetInvalidRegions().Should().ContainSingle().Which.Should().Be(region);
         source.IsDirty.Should().BeTrue();
+    }
+
+    [Fact]
+    public void CanvasImageSource_ExposesDeviceAndSize()
+    {
+        CanvasDevice device = CanvasDevice.GetSharedDevice();
+        using var source = new CanvasImageSource(device, 4, 8, 96);
+
+        source.Device.Should().BeSameAs(device);
+        source.Size.Should().Be(new Size(4, 8));
+        source.SizeInPixels.Should().Be(new Size(4, 8));
+    }
+
+    [Fact]
+    public void CanvasVirtualImageSource_CreateDrawingSessionWithClearColorAndRect_DrawsPixels()
+    {
+        using var source = new CanvasVirtualImageSource(CanvasDevice.GetSharedDevice(), 8, 8, 96, 4);
+        var region = new Rect(0, 0, 4, 4);
+
+        using (CanvasDrawingSession ds = source.CreateDrawingSession(Color.FromArgb(255, 0, 0, 0), region))
+            ds.FillRectangle(0, 0, 4, 4, Color.FromArgb(255, 10, 20, 30));
+
+        using CanvasBitmap bitmap = source.CreateBitmap();
+        byte[] pixel = new byte[4];
+        bitmap.CopyPixels(pixel, 1, 1, 1, 1);
+
+        pixel.Should().Equal(30, 20, 10, 255);
+        source.InvalidRegions.Should().Contain(region);
     }
 
     [Fact]
@@ -72,5 +101,51 @@ public sealed class CanvasImageSourceAndSpriteBatchTests
 
         secondDraw.Should().Throw<InvalidOperationException>();
         batch.IsFailed.Should().BeTrue();
+    }
+
+    [Fact]
+    public void CanvasImageSource_FromResourceCreator_UsesDeviceAndDpi()
+    {
+        var creator = new FakeResourceCreator(CanvasDevice.GetSharedDevice(), 144f);
+        using var source = new CanvasImageSource(creator, 4, 4);
+
+        source.Device.Should().BeSameAs(creator.Device);
+        source.Dpi.Should().Be(144f);
+    }
+
+    [Fact]
+    public void CanvasVirtualImageSource_FromResourceCreator_UsesDeviceAndDpi()
+    {
+        var creator = new FakeResourceCreator(CanvasDevice.GetSharedDevice(), 144f);
+        using var source = new CanvasVirtualImageSource(creator, 512, 512, 128);
+
+        source.Device.Should().BeSameAs(creator.Device);
+        source.Dpi.Should().Be(144f);
+        source.TileSize.Should().Be(128);
+    }
+
+    [Fact]
+    public void CanvasCommandList_FromResourceCreator_UsesDevice()
+    {
+        var creator = new FakeResourceCreator(CanvasDevice.GetSharedDevice(), 96f);
+        using var commandList = new CanvasCommandList(creator);
+
+        commandList.Device.Should().BeSameAs(creator.Device);
+        commandList.Size.Should().Be(new Size(1024, 1024));
+    }
+
+    private sealed class FakeResourceCreator : ICanvasResourceCreatorWithDpi
+    {
+        public FakeResourceCreator(CanvasDevice device, float dpi)
+        {
+            Device = device;
+            Dpi = dpi;
+        }
+
+        public CanvasDevice Device { get; }
+        public float Dpi { get; }
+
+        public int ConvertDipsToPixels(float dips, CanvasDpiRounding dpiRounding) => (int)Math.Round(dips * Dpi / 96f);
+        public float ConvertPixelsToDips(int pixels) => pixels * 96f / Dpi;
     }
 }

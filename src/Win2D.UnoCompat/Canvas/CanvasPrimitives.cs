@@ -37,6 +37,7 @@ namespace Microsoft.Graphics.Canvas
         public Geometry.CanvasLineJoin LineJoin { get; set; }
         public Geometry.CanvasCapStyle DashCap { get; set; } = Geometry.CanvasCapStyle.Square;
         public float DashOffset { get; set; }
+        public float MiterLimit { get; set; } = 1f;
         public float[]? CustomDashStyle { get; set; }
         public Geometry.CanvasStrokeTransformBehavior TransformBehavior { get; set; } = Geometry.CanvasStrokeTransformBehavior.Default;
     }
