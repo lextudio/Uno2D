@@ -959,6 +959,16 @@ namespace Microsoft.Graphics.Canvas
             return new CanvasSpriteBatch(this) { SortMode = sortMode };
         }
 
+        public CanvasSpriteBatch CreateSpriteBatch(CanvasSpriteSortMode sortMode, CanvasImageInterpolation interpolation)
+        {
+            return new CanvasSpriteBatch(this) { SortMode = sortMode, Interpolation = interpolation };
+        }
+
+        public CanvasSpriteBatch CreateSpriteBatch(CanvasSpriteSortMode sortMode, CanvasImageInterpolation interpolation, CanvasSpriteOptions options)
+        {
+            return new CanvasSpriteBatch(this) { SortMode = sortMode, Interpolation = interpolation, Options = options };
+        }
+
         public CanvasLayer CreateLayer(float opacity)
         {
             using var layerPaint = new SKPaint { Color = new SKColor(0, 0, 0, (byte)(opacity * 255)) };

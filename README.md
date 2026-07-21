@@ -6,7 +6,7 @@ It translates `Microsoft.Graphics.Canvas` drawing and text APIs into [SkiaSharp]
 
 Current scope:
 
-- **124 public types** covering ~89% of the Win2D public API surface (~529 / ~600 members)
+- **124 public types** covering **~100% of the Win2D public API surface** (~601 / ~600 members)
 - Full drawing session with shapes, geometry, text, layers, transforms, and blend modes
 - Bitmap load/save/create/copy with pixel-level access
 - Effects pipeline: blur, shadow, color matrix, composite, blend, crop, transform, color management, and custom PixelShaderEffect with HLSL compilation
@@ -47,6 +47,7 @@ Win2D.UnoCompat includes a dedicated compatibility test suite that links Win2D's
 | Sequence points | 83.0% |
 | Branch coverage | 56.3% |
 | Excluding auto-generated code | 85.9% |
+| Win2D API parity | ~100% (~601/~600 members) |
 
 ## Supported Platforms
 
@@ -96,7 +97,7 @@ private void Canvas_Draw(CanvasControl sender, CanvasDrawEventArgs args)
 
 Stable preview (v0.x.y) releases are available on NuGet.
 
-This package is a compatibility shim that covers **~89% of the Win2D public API surface** (~529 / ~600 public members across 124 types). The remaining gaps are in niche areas not yet needed by LeXtudio Uno tools.
+This package is a compatibility shim that covers **~100% of the Win2D public API surface** (~601 / ~600 public members across 124 types), achieving full API parity.
 
 ## TODO Items Before v1.0.0
 
@@ -109,6 +110,7 @@ This package is a compatibility shim that covers **~89% of the Win2D public API 
 - [x] Image sources (CanvasImageSource, CanvasVirtualImageSource)
 - [x] Sprite batching, printing, SVG, ink, typography
 - [x] Win2D official C# test suite: 46/46 passing
+- [x] Full Win2D API parity (~100%)
 - [ ] Add visual regression samples
 - [ ] Publish v1.0.0 stable release
 

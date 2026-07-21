@@ -18,6 +18,15 @@ namespace Microsoft.Graphics.Canvas
         private static readonly CanvasDevice _shared = new();
         private int _featureLevel = 1;
 
+        public CanvasDevice()
+        {
+        }
+
+        public CanvasDevice(bool forceSoftwareRenderer)
+        {
+            ForceSoftwareRenderer = forceSoftwareRenderer;
+        }
+
         public static CanvasDevice GetSharedDevice() => _shared;
 
         public static CanvasDevice GetSharedDevice(bool forceSoftwareRenderer)

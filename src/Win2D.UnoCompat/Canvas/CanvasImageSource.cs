@@ -42,10 +42,16 @@ namespace Microsoft.Graphics.Canvas
         public float Width { get; }
         public float Height { get; }
         public float Dpi { get; }
+        public CanvasAlphaMode AlphaMode { get; }
         public Size Size => new(Width, Height);
         public Size SizeInPixels => new(Width * Dpi / 96f, Height * Dpi / 96f);
         public bool IsDirty => _isDirty;
         public object? ImageSource => null;
+
+        public void Recreate(ICanvasResourceCreator resourceCreator)
+        {
+            ThrowIfDisposed();
+        }
 
         public CanvasDrawingSession CreateDrawingSession(Color clearColor)
         {

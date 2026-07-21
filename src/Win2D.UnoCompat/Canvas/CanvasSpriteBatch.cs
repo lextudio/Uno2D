@@ -29,6 +29,10 @@ namespace Microsoft.Graphics.Canvas
 
         public CanvasSpriteSortMode SortMode { get; set; } = CanvasSpriteSortMode.None;
 
+        public CanvasImageInterpolation Interpolation { get; set; } = CanvasImageInterpolation.Linear;
+
+        public CanvasSpriteOptions Options { get; set; } = CanvasSpriteOptions.None;
+
         public bool IsFailed { get; private set; }
 
         public int Count => _sprites.Count;
